@@ -1,3 +1,4 @@
+import type { Subproject } from "./detect";
 import type { Framework, OnboardingData } from "./types";
 
 export const SCHEMA_VERSION = "1";
@@ -58,6 +59,8 @@ const SECTION_INSTRUCTIONS = {
     "Uma entrada por tecnologia relevante (linguagem, framework, banco, ORM, auth, testes, lint, deploy, filas, libs centrais). category: ex. framework, database, orm, testing, styling, infra. version: do package.json/lockfile. why: para que é usada NESTE projeto. evidence: onde aparece (package.json, arquivo de config ou de uso).",
   architecture:
     "style: o estilo arquitetural em uma linha (ex.: 'Monolito modular em camadas', 'Microsserviços que conversam por fila', 'Serverless', 'Arquitetura hexagonal'); use os sinais de `facts` (monorepo, Dockerfiles, pastas de camadas, libs de mensageria) e diga em que se baseou. patterns: até 5 padrões que dão forma ao código e que a pessoa vai encontrar logo (Repository, injeção de dependência, CQRS, eventos de domínio, Server Actions...), cada um com description curta de como aparece aqui e evidence. summary: como o código está organizado e como uma requisição/ação flui pelo sistema. diagram: diagrama Mermaid (graph TD ou flowchart) com os principais módulos e integrações externas, sem cercas ```. modules: pastas ou módulos principais com path e responsibility.",
+  subprojects:
+    "Só em repositórios com mais de um projeto (monorepo com workspaces ou pastas como frontend/ e backend/ com package.json próprio); num projeto único deixe []. Os itens já vêm com o que o onboarding-kit detectou (name, path, framework, dependsOn): confira, remova os que não importam (exemplos, fixtures) e acrescente os que faltarem. kind: app, serviço, biblioteca compartilhada, config, ferramenta... description: o que o projeto faz e quem o usa, em 1 ou 2 frases. dependsOn: names de outros subprojetos que ele importa. command: o comando para rodar só ele a partir da raiz (ex.: 'pnpm --filter web dev', 'npm run dev -w apps/api', 'nx serve api', 'turbo dev --filter=web'), vazio se ele não roda sozinho. Use os subprojetos também em architecture (diagrama com um nó por app e as dependências entre eles), gettingStarted.commands e features.entryPoints.",
   conventions:
     "Padrões de código que alguém novo precisa seguir: nomenclatura, estrutura de pastas, tratamento de erro, validação, padrões de componentes, testes, commits, lint/format. example: trecho curto real ou ilustrativo. evidence obrigatória.",
   domain:
@@ -89,9 +92,25 @@ const SECTION_INSTRUCTIONS = {
 export interface TemplateOptions {
   framework: Framework;
   language?: string;
+  /** Subprojetos detectados (detectSubprojects): entram pré-preenchidos e ganham dicas por framework. */
+  subprojects?: Subproject[];
 }
 
-export function createTemplate({ framework, language = "pt-BR" }: TemplateOptions): OnboardingData {
+/** Instruções extras para repositórios com vários projetos: um resumo e a dica de cada framework encontrado. */
+function monorepoInstructions(framework: Framework, subprojects: Subproject[]) {
+  const frameworks: Record<string, string> = {};
+  for (const id of new Set(subprojects.map((s) => s.framework))) {
+    if (id === framework) continue;
+    const group = subprojects.filter((s) => s.framework === id);
+    frameworks[`${group[0].frameworkLabel} (${group.map((s) => s.path).join(", ")})`] = FRAMEWORK_HINTS[id];
+  }
+  return {
+    readme: `Este repositório tem ${subprojects.length} projetos (veja a seção subprojects). Explique primeiro como eles se encaixam (quem é app, quem é biblioteca compartilhada, quem depende de quem) e depois o que cada um faz. Caminhos em evidence continuam relativos à raiz do repositório (ex.: apps/web/src/page.tsx).`,
+    frameworks,
+  };
+}
+
+export function createTemplate({ framework, language = "pt-BR", subprojects = [] }: TemplateOptions): OnboardingData {
   return {
     _instructions: {
       readme:
@@ -114,6 +133,7 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
         "Se meta.status já for \"filled\", você está ATUALIZANDO: use `git diff <meta.commit>..HEAD` para revisar apenas o que mudou, mantenha o restante e atualize meta.commit e meta.generatedAt.",
       ],
       framework: FRAMEWORK_HINTS[framework],
+      ...(subprojects.length ? { monorepo: monorepoInstructions(framework, subprojects) } : {}),
       sections: SECTION_INSTRUCTIONS,
     },
     meta: {
@@ -146,6 +166,16 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
       diagram: "",
       modules: [{ name: "", path: "", responsibility: "" }],
     },
+    subprojects: subprojects.map((s) => ({
+      name: s.name,
+      path: s.path,
+      kind: "",
+      // "Vite (React, Vue, Svelte...)" vira "Vite · React"
+      framework: [...new Set([s.frameworkLabel.replace(/\s*\(.*\)$/, ""), ...s.ui])].join(" · "),
+      description: "",
+      dependsOn: s.dependsOn,
+      command: "",
+    })),
     conventions: [{ title: "", description: "", example: "", evidence: [""] }],
     domain: {
       glossary: [{ term: "", definition: "" }],

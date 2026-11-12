@@ -122,6 +122,10 @@ const pt = {
     styleTitle: "O desenho do sistema",
     styleLede: "O estilo da arquitetura e os padrões que você vai encontrar no código.",
     patterns: "Padrões que você vai ver",
+    projectsTitle: "Os projetos deste repositório",
+    projectsLede: "Este repositório tem mais de um projeto. Veja o que cada um faz e quem depende de quem.",
+    dependsOn: "usa",
+    usedBy: "usado por",
   },
   setup: {
     title: "Bora rodar na sua máquina",
@@ -345,6 +349,10 @@ const en: Copy = {
     styleTitle: "The shape of the system",
     styleLede: "The architectural style and the patterns you'll meet in the code.",
     patterns: "Patterns you'll see",
+    projectsTitle: "The projects in this repository",
+    projectsLede: "This repository holds more than one project. Here is what each one does and who depends on whom.",
+    dependsOn: "uses",
+    usedBy: "used by",
   },
   setup: {
     title: "Let's run it on your machine",

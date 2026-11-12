@@ -505,3 +505,112 @@ test("cores da marca em Expo, Vuetify e blocos <style> de Vue", () => {
   const vue = tmpProject({ "src/App.vue": "<template/>\n<style>\n:root { --brand: #0ea5e9; }\n</style>" });
   assert.equal(kit.toHex(kit.resolveBrand({}, vue).colors[0]), "#0ea5e9");
 });
+
+test("detectSubprojects lê workspaces (npm, pnpm, exclusões) e dependências internas", () => {
+  const dir = tmpProject({
+    "package.json": JSON.stringify({ name: "root", private: true, workspaces: ["apps/*", "packages/*", "!packages/legacy"] }),
+    "turbo.json": "{}",
+    "apps/web/package.json": JSON.stringify({ name: "web", dependencies: { next: "15", react: "19", "@acme/ui": "workspace:*" } }),
+    "apps/api/package.json": JSON.stringify({ name: "api", dependencies: { "@nestjs/core": "11", "@acme/config": "*" } }),
+    "packages/ui/package.json": JSON.stringify({ name: "@acme/ui", main: "index.js", dependencies: { react: "19" } }),
+    "packages/config/package.json": JSON.stringify({ name: "@acme/config", private: true }),
+    "packages/legacy/package.json": JSON.stringify({ name: "legacy" }),
+    "packages/notes/README.md": "sem package.json",
+  });
+  const subs = kit.detectSubprojects(dir);
+  assert.deepEqual(subs.map((s) => s.path), ["apps/api", "apps/web", "packages/config", "packages/ui"]);
+  const web = subs.find((s) => s.name === "web");
+  assert.equal(web.framework, "next");
+  assert.equal(web.kind, "app");
+  assert.deepEqual(web.ui, ["React"]);
+  assert.deepEqual(web.dependsOn, ["@acme/ui"]);
+  assert.equal(subs.find((s) => s.name === "@acme/ui").kind, "package");
+  assert.equal(subs.find((s) => s.name === "@acme/config").kind, "package");
+
+  const profile = kit.detectProject(dir);
+  assert.match(profile.monorepo, /Turborepo/);
+  assert.match(profile.monorepo, /workspaces/);
+  assert.equal(profile.subprojects.length, 4);
+
+  const pnpm = tmpProject({
+    "package.json": JSON.stringify({ name: "root", private: true }),
+    "pnpm-workspace.yaml": "packages:\n  - 'apps/*'\n  - \"tools/**\" # tudo\ncatalog:\n  react: ^19\n",
+    "apps/site/package.json": JSON.stringify({ name: "site", devDependencies: { astro: "5" } }),
+    "tools/scripts/cli/package.json": JSON.stringify({ name: "cli", bin: "index.js" }),
+  });
+  assert.deepEqual(kit.detectSubprojects(pnpm).map((s) => [s.path, s.framework]), [["apps/site", "astro"], ["tools/scripts/cli", "library"]]);
+  assert.deepEqual(kit.expandWorkspacePattern(pnpm, "apps/{site,docs}"), ["apps/site"]);
+});
+
+test("detectSubprojects acha projetos sem workspace e ignora projeto único", () => {
+  const multi = tmpProject({
+    "README.md": "# dois projetos",
+    "frontend/package.json": JSON.stringify({ name: "frontend", devDependencies: { vite: "6", vue: "3" } }),
+    "backend/package.json": JSON.stringify({ name: "backend", dependencies: { express: "5" }, scripts: { start: "node ." } }),
+    "frontend/node_modules/vue/package.json": JSON.stringify({ name: "vue" }),
+    "test/fixtures/app/package.json": JSON.stringify({ name: "fixture" }),
+  });
+  assert.deepEqual(kit.detectSubprojects(multi).map((s) => `${s.name}:${s.framework}:${s.kind}`), ["backend:express:app", "frontend:vite:app"]);
+  assert.equal(kit.detectProject(multi).monorepo, "vários projetos sem workspace");
+
+  const single = tmpProject({ "package.json": JSON.stringify({ name: "solo", dependencies: { express: "5" } }), "src/index.js": "" });
+  assert.deepEqual(kit.detectSubprojects(single), []);
+  assert.equal(kit.detectProject(single).monorepo, undefined);
+});
+
+test("template, validate e render com subprojetos", () => {
+  const dir = tmpProject({
+    "package.json": JSON.stringify({ name: "root", private: true, workspaces: ["apps/*", "packages/*"] }),
+    "apps/web/package.json": JSON.stringify({ name: "web", dependencies: { vite: "6", react: "19", ui: "*" } }),
+    "packages/ui/package.json": JSON.stringify({ name: "ui", main: "index.js" }),
+    "src/index.js": "// app\nmodule.exports = {};\n",
+  });
+  const subprojects = kit.detectSubprojects(dir);
+  const template = kit.createTemplate({ framework: "node", subprojects });
+  assert.deepEqual(template.subprojects.map((s) => [s.name, s.path, s.framework, s.dependsOn]), [
+    ["web", "apps/web", "Vite · React", ["ui"]],
+    ["ui", "packages/ui", "Biblioteca / CLI", []],
+  ]);
+  assert.match(template._instructions.monorepo.readme, /2 projetos/);
+  assert.ok(Object.keys(template._instructions.monorepo.frameworks).some((k) => k.startsWith("Vite") && k.includes("apps/web")));
+  assert.equal(kit.createTemplate({ framework: "node" })._instructions.monorepo, undefined);
+  assert.deepEqual(kit.createTemplate({ framework: "node" }).subprojects, []);
+
+  const data = filledData();
+  data.subprojects = template.subprojects.map((s) => ({ ...s, description: "", kind: "app" }));
+  let issues = kit.validateOnboarding(data, { root: dir });
+  assert.ok(issues.some((i) => i.path === "subprojects[0].description" && i.level === "error"));
+
+  data.subprojects[0].description = "O site da loja";
+  data.subprojects[0].command = "npm run dev -w apps/web";
+  data.subprojects[0].dependsOn = ["ui", "fantasma"];
+  data.subprojects[1].description = "Componentes <compartilhados>";
+  data.subprojects[1].path = "packages/nao-existe";
+  issues = kit.validateOnboarding(data, { root: dir });
+  assert.ok(issues.some((i) => i.path === "subprojects[0].dependsOn[1]" && i.level === "warning"));
+  assert.ok(issues.some((i) => i.path === "subprojects[1].path" && i.level === "error"));
+
+  data.subprojects[1].path = "packages/ui";
+  const html = kit.renderOnboarding(data);
+  assert.match(html, /Os projetos deste repositório/);
+  assert.match(html, /npm run dev -w apps\/web/);
+  assert.match(html, /usado por: web/);
+  assert.match(html, /Componentes &lt;compartilhados&gt;/);
+  assert.doesNotMatch(kit.renderOnboarding(filledData()), /Os projetos deste repositório/);
+});
+
+test("CLI init e facts mostram os subprojetos", () => {
+  const dir = tmpProject({
+    "package.json": JSON.stringify({ name: "root", private: true, workspaces: ["apps/*"] }),
+    "apps/web/package.json": JSON.stringify({ name: "web", dependencies: { next: "15" } }),
+    "apps/api/package.json": JSON.stringify({ name: "api", dependencies: { fastify: "5" } }),
+  });
+  const out = execFileSync("node", [CLI, "init", "--no-route"], { cwd: dir, env: { ...process.env, NO_COLOR: "1" } }).toString();
+  assert.match(out, /Subprojetos: 2/);
+  const json = JSON.parse(readFileSync(join(dir, "onboarding.json"), "utf8"));
+  assert.deepEqual(json.subprojects.map((s) => s.path), ["apps/api", "apps/web"]);
+
+  const facts = execFileSync("node", [CLI, "facts"], { cwd: dir, env: { ...process.env, NO_COLOR: "1" } }).toString();
+  assert.match(facts, /Subprojetos \(2\)/);
+  assert.match(facts, /web apps\/web · app · Next\.js/);
+});

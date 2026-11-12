@@ -222,6 +222,27 @@ const architecture: Builder = (ctx) => {
       }`,
     });
   }
+  const projects = filled(data.subprojects);
+  slides.push(
+    ...paged(ctx, "architecture", projects, 6, t.architecture.projectsTitle, t.architecture.projectsLede, (page) =>
+      `<div class="grid reveal">${page
+        .map((s) => {
+          const usedBy = projects.filter((o) => filled(o.dependsOn).includes(s.name)).map((o) => o.name);
+          const links = [
+            ...(filled(s.dependsOn).length ? [`${t.architecture.dependsOn}: ${filled(s.dependsOn).join(", ")}`] : []),
+            ...(usedBy.length ? [`${t.architecture.usedBy}: ${usedBy.join(", ")}`] : []),
+          ];
+          return `<div class="card subproject"><div class="card-top"><h3>${escapeHtml(s.name)}</h3>${s.kind?.trim() ? `<span class="badge">${escapeHtml(s.kind)}</span>` : ""}</div>${
+            s.framework?.trim() ? `<span class="label">${escapeHtml(s.framework)}</span>` : ""
+          }<p>${text(s.description)}</p>${links.length ? `<div class="badges">${links.map((l) => `<span class="badge">${escapeHtml(l)}</span>`).join("")}</div>` : ""}${
+            s.command?.trim()
+              ? `<span class="inline-cmd"><code>${escapeHtml(s.command)}</code><button type="button" class="copy" data-copy="${escapeHtml(s.command)}" data-done="${escapeHtml(t.setup.copied)}">${t.setup.copy}</button></span>`
+              : ""
+          }<div class="evidence">${evidenceChip(s.path, data)}</div></div>`;
+        })
+        .join("")}</div>`,
+    ),
+  );
   slides.push(
     ...paged(ctx, "architecture", filled(a.modules), 6, t.architecture.modulesTitle, t.architecture.modulesLede, (page) =>
       `<div class="modules reveal">${page

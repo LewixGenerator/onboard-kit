@@ -103,7 +103,7 @@ Se você abrir `/onboarding` antes da IA terminar, a página mostra o prompt pro
 |---|---|
 | `init` | Cria o `onboarding.json` e liga a rota. Opções: `--framework`, `--lang`, `--no-route`, `--force` |
 | `prompt` | Mostra o texto para enviar à IA |
-| `facts` | Lista os fatos que a IA usa como base: framework, UI, runtime e linguagens do repositório, branches, padrão dos commits recentes, CI, hooks, templates de PR, testes, sinais de arquitetura (monorepo, vários Dockerfiles, mensageria, pastas de camadas), TODOs e observações em comentários. `--json` para saída em JSON |
+| `facts` | Lista os fatos que a IA usa como base: framework, UI, runtime e linguagens do repositório, branches, padrão dos commits recentes, CI, hooks, templates de PR, testes, subprojetos do monorepo (framework e dependências internas de cada um), sinais de arquitetura (monorepo, vários Dockerfiles, mensageria, pastas de camadas), TODOs e observações em comentários. `--json` para saída em JSON |
 | `validate` | Confere campos obrigatórios, itens-modelo esquecidos, se as evidências existem, se há segredos e se o JSON está atrás do commit atual. Sai com código 1 em caso de erro (útil na CI) |
 | `serve` | Abre a apresentação em `http://localhost:4321` (`--port` para mudar) |
 
@@ -131,6 +131,12 @@ Com uma cor, os capítulos variam em torno dela. Com várias, eles se revezam en
 ## O que vai no JSON
 
 `project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks`, `workflow` (modelo de branches, padrão de commit com exemplos reais, processo de PR, ambientes de deploy), `quality` (como o time testa e o que roda na CI e nos hooks), `docs`, `codeNotes` (NOTE/IMPORTANT/WARNING/@deprecated relevantes), `todos` e `brand` (cores e logo). `architecture` também traz `style` (monolito, microsserviços, hexagonal…) e `patterns`.
+
+### Monorepos e vários projetos
+
+O `init` e o `facts` reconhecem repositórios com mais de um projeto: workspaces do npm, Yarn, Bun e pnpm (`pnpm-workspace.yaml`), Lerna, Rush e Deno, com Turborepo e Nx identificados junto. Sem workspace declarado, pastas com `package.json` ou `deno.json` próprio (como `frontend/` e `backend/`) também contam. Para cada subprojeto o kit detecta o framework, a biblioteca de UI, se é um app ou um pacote consumido pelos outros e as dependências internas.
+
+O `onboarding.json` já nasce com a seção `subprojects` pré-preenchida (nome, pasta, framework e `dependsOn`) e com as dicas de cada framework encontrado em `_instructions.monorepo`. A IA completa `kind`, `description` e `command` (ex.: `pnpm --filter web dev`), e a apresentação ganha um slide no capítulo de arquitetura com o que cada projeto faz e quem depende de quem. O `validate` confere se as pastas existem e se o `dependsOn` aponta para subprojetos listados.
 
 Toda afirmação aponta para arquivos reais (`evidence: ["src/orders/orders.service.ts:42"]`). Quando `project.repoUrl` está preenchido, essas referências viram links para o código.
 

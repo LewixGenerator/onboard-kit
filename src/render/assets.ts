@@ -264,6 +264,10 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
 .inline-cmd{display:flex;gap:10px;align-items:center}
 .inline-cmd .copy,.cheat .copy{color:var(--text);border-color:var(--border)}
 .inline-cmd .copy:hover,.cheat .copy:hover{background:var(--surface-2)}
+.subproject .label{margin:2px 0 6px;color:var(--muted)}
+.subproject .badges{margin-top:10px}
+.subproject .inline-cmd{margin-top:12px;min-width:0}
+.subproject .inline-cmd code{overflow-wrap:anywhere}
 .branch-map{position:relative;display:grid;gap:12px;margin:8px 0 6px;padding-left:34px}
 .branch-map::before{content:"";position:absolute;left:11px;top:14px;bottom:14px;width:4px;border-radius:4px;background:linear-gradient(var(--accent),var(--accent-soft))}
 .trunk,.branch{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}

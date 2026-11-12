@@ -35,6 +35,7 @@ const ARRAY_SECTIONS: { path: string; key: string; evidence?: "error" | "warning
   { path: "gettingStarted.commands", key: "command" },
   { path: "gettingStarted.envVars", key: "name" },
   { path: "architecture.patterns", key: "name", evidence: "warning", optional: true },
+  { path: "subprojects", key: "path", optional: true },
   { path: "workflow.branching.branches", key: "pattern", optional: true },
   { path: "workflow.release.environments", key: "name", optional: true },
   { path: "quality.checks", key: "name", evidence: "warning", optional: true },
@@ -236,6 +237,22 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
     if (section.min && real < section.min) err(section.path, `precisa de pelo menos ${section.min} item`);
     const max = MAX_ITEMS[section.path];
     if (max && real > max) warn(section.path, `${real} itens: mantenha no máximo ${max}, só os que importam para quem está chegando`);
+  }
+
+  const subprojects = data.subprojects;
+  if (Array.isArray(subprojects)) {
+    const names = new Set(subprojects.filter(isObj).map((s) => s.name));
+    subprojects.forEach((s, i) => {
+      if (!isObj(s) || isBlank(s)) return;
+      const at = `subprojects[${i}]`;
+      if (isBlank(s.description)) err(`${at}.description`, "vazio: explique o que este projeto faz");
+      if (typeof s.path === "string" && !isBlank(s.path)) checkEvidence(s.path, `${at}.path`, options.root, issues);
+      if (Array.isArray(s.dependsOn)) {
+        s.dependsOn.forEach((dep, j) => {
+          if (!isBlank(dep) && !names.has(dep)) warn(`${at}.dependsOn[${j}]`, `"${dep}" não está em subprojects`);
+        });
+      }
+    });
   }
 
   const examples = get(data, "workflow.commits.examples");

@@ -89,6 +89,21 @@ export interface Architecture {
   modules: ArchitectureModule[];
 }
 
+export interface SubprojectInfo {
+  name: string;
+  /** Pasta relativa à raiz (ex.: apps/web). */
+  path: string;
+  /** app, serviço, biblioteca compartilhada, config, ferramenta... */
+  kind: string;
+  framework: string;
+  /** O que este projeto faz, em 1 ou 2 frases. */
+  description: string;
+  /** Outros subprojetos de que este depende (pelo name). */
+  dependsOn: string[];
+  /** Comando para rodar só este projeto (ex.: pnpm --filter web dev). */
+  command: string;
+}
+
 export interface Convention {
   title: string;
   description: string;
@@ -263,6 +278,8 @@ export interface OnboardingData {
   gettingStarted: GettingStarted;
   stack: StackItem[];
   architecture: Architecture;
+  /** Projetos do monorepo ou do repositório com várias pastas de projeto. Vazio num projeto único. */
+  subprojects?: SubprojectInfo[];
   conventions: Convention[];
   domain: {
     glossary: GlossaryTerm[];

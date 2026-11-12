@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, join, relative } from "node:path";
 import { createOnboardingHandler } from "../adapters/node";
-import { detectFramework, FRAMEWORK_IDS, FRAMEWORKS, readProjectManifests } from "../detect";
+import { detectFramework, detectSubprojects, FRAMEWORK_IDS, FRAMEWORKS, readProjectManifests } from "../detect";
 import { collectFacts, NOTE_KINDS, TODO_KINDS, type RepoFacts } from "../facts";
 import { DEFAULT_FILE, loadOnboarding, resolveFile } from "../load";
 import { aiPrompt, createTemplate } from "../template";
@@ -322,12 +322,17 @@ function cmdInit(flags: Args["flags"]): number {
   const language = typeof flags.lang === "string" ? flags.lang : "pt-BR";
   const file = resolveFile(typeof flags.file === "string" ? flags.file : undefined);
   const relFile = relative(root, file);
+  const subprojects = detectSubprojects(root);
   const lines: string[] = [`Framework: ${c.bold(label)}${forced ? "" : c.dim(" (detectado)")}`];
+  if (subprojects.length) {
+    const shown = subprojects.slice(0, 6).map((s) => `${s.path} ${c.dim(`(${s.frameworkLabel.replace(/\s*\(.*\)$/, "")})`)}`);
+    lines.push(`Subprojetos: ${c.bold(String(subprojects.length))} ${c.dim("—")} ${shown.join(", ")}${subprojects.length > 6 ? ", …" : ""}`);
+  }
 
   if (existsSync(file) && !flags.force) {
     lines.push(`${c.dim("•")} ${relFile} já existe, mantive como está ${c.dim("(use --force para recriar)")}`);
   } else {
-    writeFileSync(file, JSON.stringify(createTemplate({ framework, language }), null, 2) + "\n");
+    writeFileSync(file, JSON.stringify(createTemplate({ framework, language, subprojects }), null, 2) + "\n");
     lines.push(`${c.green("✓")} Criei ${c.bold(relFile)} com os campos em branco e as instruções para a IA`);
   }
 
@@ -409,6 +414,14 @@ export function formatFacts(f: RepoFacts): string {
   if (f.languages.length) {
     const total = f.languages.reduce((sum, l) => sum + l.files, 0);
     out.push(`  linguagens: ${f.languages.map((l) => `${l.name} ${Math.round((l.files / total) * 100)}%`).join(", ")}`);
+  }
+
+  if (p.subprojects.length) {
+    section(`Subprojetos (${p.subprojects.length})`);
+    for (const s of p.subprojects) {
+      const extra = [s.ui.length ? `UI: ${s.ui.join(", ")}` : "", s.private ? "privado" : "", s.dependsOn.length ? `usa ${s.dependsOn.join(", ")}` : ""].filter(Boolean);
+      out.push(`  - ${c.bold(s.name)} ${c.dim(s.path)} · ${s.kind === "app" ? "app" : "pacote"} · ${s.frameworkLabel}${extra.length ? ` · ${extra.join(" · ")}` : ""}`);
+    }
   }
 
   section("Git");
