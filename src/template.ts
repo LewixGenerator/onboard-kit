@@ -4,9 +4,9 @@ export const SCHEMA_VERSION = "1";
 
 const FRAMEWORK_HINTS: Record<Framework, string> = {
   next:
-    "Projeto Next.js. Identifique se usa App Router (app/) ou Pages Router (pages/), as rotas e layouts, Server Components e Client Components ('use client'), Server Actions, route handlers (app/**/route.ts), middleware.ts, estratégia de fetch e cache, autenticação, estilização (Tailwind, CSS Modules etc.) e onde fica o acesso a dados. Use as rotas principais como base para features e tours. Ignore a rota app/onboarding criada pelo onboard-kit.",
+    "Projeto Next.js. Identifique se usa App Router (app/) ou Pages Router (pages/), as rotas e layouts, Server Components e Client Components ('use client'), Server Actions, route handlers (app/**/route.ts), middleware.ts, estratégia de fetch e cache, autenticação, estilização (Tailwind, CSS Modules etc.) e onde fica o acesso a dados. Use as rotas principais como base para features e tours. Ignore a rota app/onboarding criada pelo onboarding-kit.",
   nest:
-    "Projeto NestJS. Mapeie os módulos (*.module.ts) e as dependências entre eles para architecture.modules e o diagrama. Levante controllers e rotas, providers e services, guards, interceptors, pipes, DTOs e validação (class-validator), entidades e ORM (TypeORM, Prisma, Mongoose), filas, jobs agendados e configuração (ConfigModule). As regras de negócio costumam estar nos services. Ignore o OnboardingModule do onboard-kit.",
+    "Projeto NestJS. Mapeie os módulos (*.module.ts) e as dependências entre eles para architecture.modules e o diagrama. Levante controllers e rotas, providers e services, guards, interceptors, pipes, DTOs e validação (class-validator), entidades e ORM (TypeORM, Prisma, Mongoose), filas, jobs agendados e configuração (ConfigModule). As regras de negócio costumam estar nos services. Ignore o OnboardingModule do onboarding-kit.",
   node:
     "Projeto Node.js. Identifique o ponto de entrada (main e scripts do package.json), o framework HTTP (Express, Fastify, Koa ou http nativo), a organização de rotas e middlewares, o acesso a dados, jobs/workers e scripts utilitários.",
 };
@@ -53,7 +53,7 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
         "2. Explore o repositório: package.json e lockfile, README e docs, arquivos de config (tsconfig, eslint, prettier, next.config, nest-cli.json, docker, CI), código-fonte, testes e .env.example.",
         "3. Preencha cada seção seguindo _instructions.sections.<seção> e _instructions.framework. Os arrays vêm com um item modelo em branco: substitua-o por itens reais, quantos forem necessários. Se não houver nada real para a seção, deixe o array vazio ([]).",
         "4. Preencha meta: status = \"filled\", generatedAt = data e hora atuais em ISO 8601, generatedBy = nome da ferramenta e do modelo, commit = saída de `git rev-parse HEAD` (vazio se não houver git).",
-        "5. Rode `npx onboard-kit validate` e corrija tudo o que ele apontar até passar sem erros.",
+        "5. Rode `npx onboarding-kit validate` e corrija tudo o que ele apontar até passar sem erros.",
       ],
       rules: [
         "Escreva todo o conteúdo no idioma de meta.language.",
@@ -106,5 +106,5 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
 
 /** Frase para colar na IA local depois do `init`. */
 export function aiPrompt(file = "onboarding.json"): string {
-  return `Leia o arquivo ${file} e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboard-kit validate" e corrija o que ele apontar.`;
+  return `Leia o arquivo ${file} e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.`;
 }

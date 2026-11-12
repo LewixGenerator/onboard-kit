@@ -8,7 +8,7 @@ export type { OnboardingOptions };
  * Route handler para o App Router do Next.js.
  *
  * app/onboarding/route.ts:
- *   import { createOnboardingRoute } from "onboard-kit/next";
+ *   import { createOnboardingRoute } from "onboarding-kit/next";
  *   export const runtime = "nodejs";
  *   export const dynamic = "force-dynamic";
  *   export const GET = createOnboardingRoute();

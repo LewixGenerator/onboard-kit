@@ -47,14 +47,14 @@ function soloPage(lang: string, t: Copy, heading: string, body: string, code: st
   return shell(
     lang,
     "Onboarding",
-    `<div class="solo-wrap"><div class="solo-card"><p class="kicker"><span class="num">👋</span>onboard-kit</p><h1>${escapeHtml(heading)}</h1>${body ? `<p>${escapeHtml(body)}</p>` : ""}${block}</div></div>`,
+    `<div class="solo-wrap"><div class="solo-card"><p class="kicker"><span class="num">👋</span>onboarding-kit</p><h1>${escapeHtml(heading)}</h1>${body ? `<p>${escapeHtml(body)}</p>` : ""}${block}</div></div>`,
     { solo: true },
   );
 }
 
 export function renderMissingPage(): string {
   const t = copyFor("pt-BR");
-  return soloPage("pt-BR", t, t.missing.title, t.missing.body, "npx onboard-kit init");
+  return soloPage("pt-BR", t, t.missing.title, t.missing.body, "npx onboarding-kit init");
 }
 
 export function renderErrorPage(message: string): string {

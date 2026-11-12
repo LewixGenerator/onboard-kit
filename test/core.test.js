@@ -14,7 +14,7 @@ const cli = require("../dist/cli/index.js");
 const CLI = join(__dirname, "..", "dist", "cli", "index.js");
 
 function tmpProject(files = {}) {
-  const dir = mkdtempSync(join(tmpdir(), "onboard-kit-"));
+  const dir = mkdtempSync(join(tmpdir(), "onboarding-kit-"));
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(join(dir, path, ".."), { recursive: true });
     writeFileSync(join(dir, path), content);
@@ -167,7 +167,7 @@ test("adapter Next: devolve Response com HTML e página de arquivo ausente", asy
   assert.equal(res.status, 200);
   assert.match(res.headers.get("content-type"), /text\/html/);
   const missing = await createOnboardingRoute({ file: join(root, "nada.json"), enabled: true })();
-  assert.match(await missing.text(), /npx onboard-kit init/);
+  assert.match(await missing.text(), /npx onboarding-kit init/);
 });
 
 test("detectFramework e patch do app.module do Nest", () => {
@@ -177,7 +177,7 @@ test("detectFramework e patch do app.module do Nest", () => {
 
   const src = `import { Module } from '@nestjs/common';\n@Module({\n  imports: [UsersModule],\n})\nexport class AppModule {}\n`;
   const patched = cli.patchNestAppModule(src);
-  assert.match(patched, /^import \{ OnboardingModule \} from "onboard-kit\/nest";/);
+  assert.match(patched, /^import \{ OnboardingModule \} from "onboarding-kit\/nest";/);
   assert.match(patched, /imports: \[OnboardingModule\.register\(\), UsersModule\]/);
   assert.equal(cli.patchNestAppModule(patched), patched);
   assert.match(cli.patchNestAppModule("@Module({ imports: [ ] })"), /imports: \[OnboardingModule\.register\(\)\]/);

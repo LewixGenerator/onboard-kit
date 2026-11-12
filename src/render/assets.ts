@@ -274,7 +274,7 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
 export const JS = `
 (function(){
   var root=document.documentElement;
-  var KEY='onboard-kit:'+location.pathname+':';
+  var KEY='onboarding-kit:'+location.pathname+':';
   function sget(k){try{return localStorage.getItem(KEY+k)}catch(e){return null}}
   function sset(k,v){try{localStorage.setItem(KEY+k,v)}catch(e){}}
   function fill(t,o){return t.replace(/\\{(\\w+)\\}/g,function(_,k){return o[k]})}

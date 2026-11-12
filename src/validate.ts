@@ -161,7 +161,7 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
 
   const business = data.business;
   if (business === undefined) {
-    warn("business", "seção ausente: rode `npx onboard-kit init --force` num arquivo novo ou peça à IA para adicionar o modelo de negócio");
+    warn("business", "seção ausente: rode `npx onboarding-kit init --force` num arquivo novo ou peça à IA para adicionar o modelo de negócio");
   } else if (!isObj(business)) {
     err("business", "precisa ser um objeto");
   } else {

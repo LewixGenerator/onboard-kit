@@ -6,7 +6,7 @@
       "2. Explore o repositório: package.json e lockfile, README e docs, arquivos de config (tsconfig, eslint, prettier, next.config, nest-cli.json, docker, CI), código-fonte, testes e .env.example.",
       "3. Preencha cada seção seguindo _instructions.sections.<seção> e _instructions.framework. Os arrays vêm com um item modelo em branco: substitua-o por itens reais, quantos forem necessários. Se não houver nada real para a seção, deixe o array vazio ([]).",
       "4. Preencha meta: status = \"filled\", generatedAt = data e hora atuais em ISO 8601, generatedBy = nome da ferramenta e do modelo, commit = saída de `git rev-parse HEAD` (vazio se não houver git).",
-      "5. Rode `npx onboard-kit validate` e corrija tudo o que ele apontar até passar sem erros."
+      "5. Rode `npx onboarding-kit validate` e corrija tudo o que ele apontar até passar sem erros."
     ],
     "rules": [
       "Escreva todo o conteúdo no idioma de meta.language.",
@@ -43,7 +43,7 @@
     "commit": ""
   },
   "project": {
-    "name": "onboard-kit",
+    "name": "onboarding-kit",
     "tagline": "Onboarding de projetos gerado pela sua IA local e exibido em /onboarding.",
     "purpose": "Pacote npm que cria um `onboarding.json` em branco com instruções para a IA local do desenvolvedor. A IA analisa o repositório e preenche o arquivo; o pacote valida o resultado e mostra uma apresentação do projeto em `/onboarding`, dentro do próprio app (Next, Nest ou Node).",
     "audience": "Times de desenvolvimento que recebem pessoas novas e querem um panorama do projeto sem escrever a documentação à mão.",
@@ -80,7 +80,7 @@
       {
         "name": "Do zero ao onboarding publicado",
         "steps": [
-          "`npx onboard-kit init`",
+          "`npx onboarding-kit init`",
           "IA preenche o JSON",
           "`validate` aponta o que falta",
           "Time revisa no PR",
@@ -154,7 +154,7 @@
       "name": "NestJS",
       "category": "framework",
       "version": ">=9 (peer opcional)",
-      "why": "Usado só pelo adapter `onboard-kit/nest`.",
+      "why": "Usado só pelo adapter `onboarding-kit/nest`.",
       "evidence": [
         "package.json:57",
         "src/adapters/nest.ts:18"

@@ -1,18 +1,18 @@
-# onboard-kit
+# onboarding-kit
 
 Onboarding de projetos gerado pela **sua IA local** e exibido em `/onboarding`, dentro do próprio app.
 
-1. O `onboard-kit` cria um `onboarding.json` com todos os campos em branco e instruções para a IA.
+1. O `onboarding-kit` cria um `onboarding.json` com todos os campos em branco e instruções para a IA.
 2. Você pede para a IA que já usa no projeto (Claude Code, Cursor, Copilot…) ler e preencher o arquivo.
-3. O `onboard-kit` valida o resultado e mostra uma apresentação do projeto em `/onboarding`.
+3. O `onboarding-kit` valida o resultado e mostra uma apresentação do projeto em `/onboarding`.
 
 Funciona com **Next.js**, **NestJS** e **Node.js** (Express, http nativo e similares). Não tem dependências em runtime.
 
 ## Começando
 
 ```bash
-npm i -D onboard-kit
-npx onboard-kit init
+npm i -D onboarding-kit
+npx onboarding-kit init
 ```
 
 O `init` detecta o framework e:
@@ -23,9 +23,9 @@ O `init` detecta o framework e:
 
 Depois, envie isto para a sua IA:
 
-> Leia o arquivo onboarding.json e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboard-kit validate" e corrija o que ele apontar.
+> Leia o arquivo onboarding.json e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.
 
-Para ver o resultado, abra `/onboarding` com o app rodando em dev, ou rode `npx onboard-kit serve`.
+Para ver o resultado, abra `/onboarding` com o app rodando em dev, ou rode `npx onboarding-kit serve`.
 
 ## Comandos
 
@@ -54,21 +54,21 @@ As chaves que começam com `_` (como `_instructions`) são só para a IA: a pág
 
 ```ts
 // Next.js — app/onboarding/route.ts
-import { createOnboardingRoute } from "onboard-kit/next";
+import { createOnboardingRoute } from "onboarding-kit/next";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const GET = createOnboardingRoute();
 
 // Next.js Pages Router — pages/api/onboarding.ts (+ rewrite de /onboarding)
-import { createOnboardingApiHandler } from "onboard-kit/next";
+import { createOnboardingApiHandler } from "onboarding-kit/next";
 export default createOnboardingApiHandler();
 
 // NestJS — app.module.ts (com globalPrefix "api", a rota fica /api/onboarding)
-import { OnboardingModule } from "onboard-kit/nest";
+import { OnboardingModule } from "onboarding-kit/nest";
 @Module({ imports: [OnboardingModule.register({ path: "onboarding" })] })
 
 // Express / Node
-import { createOnboardingHandler } from "onboard-kit/node";
+import { createOnboardingHandler } from "onboarding-kit/node";
 app.get("/onboarding", createOnboardingHandler());
 ```
 
@@ -86,5 +86,5 @@ Todos os adapters aceitam `{ file?: string; enabled?: boolean }`.
 ```bash
 npm install
 npm test        # compila e roda os testes
-node dist/cli/index.js serve   # mostra o onboarding do próprio onboard-kit
+node dist/cli/index.js serve   # mostra o onboarding do próprio onboarding-kit
 ```

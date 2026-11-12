@@ -1,12 +1,12 @@
 {
-  "name": "onboard-kit",
+  "name": "onboarding-kit",
   "version": "0.1.0",
-  "description": "Onboarding de projetos gerado pela sua IA local: um JSON descreve o projeto e o onboard-kit o apresenta em /onboarding.",
+  "description": "Onboarding de projetos gerado pela sua IA local: um JSON descreve o projeto e o onboarding-kit o apresenta em /onboarding.",
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "onboard-kit": "./dist/cli/index.js"
+    "onboarding-kit": "./dist/cli/index.js"
   },
   "exports": {
     ".": {

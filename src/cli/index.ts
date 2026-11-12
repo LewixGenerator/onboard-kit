@@ -21,13 +21,13 @@ const c = {
 };
 
 const HELP = `
-${c.bold("onboard-kit")} — onboarding do projeto gerado pela sua IA local
+${c.bold("onboarding-kit")} — onboarding do projeto gerado pela sua IA local
 
 ${c.bold("Uso")}
-  npx onboard-kit init       Cria o onboarding.json em branco e a rota /onboarding
-  npx onboard-kit prompt     Mostra o texto para enviar à sua IA
-  npx onboard-kit validate   Confere o JSON preenchido (campos, evidências, segredos)
-  npx onboard-kit serve      Abre a apresentação em http://localhost:4321
+  npx onboarding-kit init       Cria o onboarding.json em branco e a rota /onboarding
+  npx onboarding-kit prompt     Mostra o texto para enviar à sua IA
+  npx onboarding-kit validate   Confere o JSON preenchido (campos, evidências, segredos)
+  npx onboarding-kit serve      Abre a apresentação em http://localhost:4321
 
 ${c.bold("Opções")}
   --file <caminho>           Arquivo de onboarding (padrão: onboarding.json)
@@ -87,9 +87,9 @@ function gitHead(cwd: string): string | undefined {
   }
 }
 
-const NEXT_ROUTE = `import { createOnboardingRoute } from "onboard-kit/next";
+const NEXT_ROUTE = `import { createOnboardingRoute } from "onboarding-kit/next";
 
-// Criado pelo onboard-kit. Mostra a apresentação do projeto em /onboarding.
+// Criado pelo onboarding-kit. Mostra a apresentação do projeto em /onboarding.
 // Fica desligada em produção; para ligar: createOnboardingRoute({ enabled: true }).
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,21 +97,21 @@ export const GET = createOnboardingRoute();
 `;
 
 const NEXT_PAGES_SNIPPET = `// pages/api/onboarding.ts
-import { createOnboardingApiHandler } from "onboard-kit/next";
+import { createOnboardingApiHandler } from "onboarding-kit/next";
 export default createOnboardingApiHandler();
 
 // next.config: para servir em /onboarding
 async rewrites() { return [{ source: "/onboarding", destination: "/api/onboarding" }]; }`;
 
 const NEST_SNIPPET = `// src/app.module.ts
-import { OnboardingModule } from "onboard-kit/nest";
+import { OnboardingModule } from "onboarding-kit/nest";
 
 @Module({
   imports: [OnboardingModule.register(), /* ...seus módulos */],
 })`;
 
 const NODE_SNIPPET = `// Express
-import { createOnboardingHandler } from "onboard-kit/node";
+import { createOnboardingHandler } from "onboarding-kit/node";
 app.get("/onboarding", createOnboardingHandler());
 
 // http nativo
@@ -140,7 +140,7 @@ export function patchNestAppModule(source: string): string | undefined {
   const withImport = source.replace(/imports\s*:\s*\[(\s*\])?/, (m, empty?: string) =>
     empty ? m.replace(/\[\s*\]$/, "[OnboardingModule.register()]") : `${m}OnboardingModule.register(), `,
   );
-  return `import { OnboardingModule } from "onboard-kit/nest";\n${withImport}`;
+  return `import { OnboardingModule } from "onboarding-kit/nest";\n${withImport}`;
 }
 
 function setupNest(root: string): string[] {
@@ -197,7 +197,7 @@ ${c.bold("Próximo passo:")} envie para a IA que você usa neste projeto (Claude
 
   ${c.cyan(prompt)}
 
-Depois rode ${c.bold("npx onboard-kit validate")} e acesse ${c.bold("/onboarding")} no app em dev (ou ${c.bold("npx onboard-kit serve")}).
+Depois rode ${c.bold("npx onboarding-kit validate")} e acesse ${c.bold("/onboarding")} no app em dev (ou ${c.bold("npx onboarding-kit serve")}).
 `);
   return 0;
 }
@@ -206,7 +206,7 @@ async function cmdValidate(flags: Args["flags"]): Promise<number> {
   const result = await loadOnboarding(typeof flags.file === "string" ? flags.file : undefined);
   if (!result.ok) {
     console.error(c.red(`✗ ${result.message}`));
-    if (result.reason === "missing") console.error(`  Rode ${c.bold("npx onboard-kit init")} primeiro.`);
+    if (result.reason === "missing") console.error(`  Rode ${c.bold("npx onboarding-kit init")} primeiro.`);
     return 1;
   }
   const root = dirname(result.file);
