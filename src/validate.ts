@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { parseColor } from "./brand";
 import { isBlank } from "./load";
 
 export interface Issue {
@@ -100,7 +101,7 @@ function walkEvidence(value: unknown, at: string, root: string, issues: Issue[])
     const here = at ? `${at}.${key}` : key;
     if (EVIDENCE_KEYS.has(key) && Array.isArray(v)) {
       v.forEach((ref, i) => checkEvidence(ref, `${here}[${i}]`, root, issues));
-    } else if (key === "file" && typeof v === "string") {
+    } else if ((key === "file" || key === "logo" || key === "favicon") && typeof v === "string") {
       checkEvidence(v, here, root, issues);
     } else {
       walkEvidence(v, here, root, issues);
@@ -173,6 +174,16 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
           err(`business.flows[${i}].steps`, "tem passos em branco");
         }
       });
+    }
+  }
+
+  const brand = data.brand;
+  if (brand !== undefined && !isObj(brand)) {
+    err("brand", "precisa ser um objeto");
+  } else if (isObj(brand)) {
+    const colors = [["brand.primaryColor", brand.primaryColor], ...(Array.isArray(brand.palette) ? brand.palette.map((c, i) => [`brand.palette[${i}]`, c]) : [])];
+    for (const [path, value] of colors) {
+      if (typeof value === "string" && !isBlank(value) && !parseColor(value)) warn(String(path), `cor não reconhecida: "${value}" (use hex, ex.: #4f46e5)`);
     }
   }
 

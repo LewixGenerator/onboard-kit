@@ -134,6 +134,18 @@ export interface FirstTask {
   files: Evidence[];
 }
 
+export interface BrandInfo {
+  /** Cor principal da marca em hex (#RRGGBB). */
+  primaryColor: string;
+  /** Outras cores da paleta em hex. */
+  palette: string[];
+  /** Caminho relativo do logo (ex.: public/logo.svg). */
+  logo: string;
+  /** Caminho relativo do favicon (ex.: public/favicon.ico). */
+  favicon: string;
+  evidence: Evidence[];
+}
+
 export interface OnboardingData {
   $schema?: string;
   _instructions?: unknown;
@@ -154,6 +166,8 @@ export interface OnboardingData {
   gotchas: Gotcha[];
   decisions: Decision[];
   firstTasks: FirstTask[];
+  /** Cores e logo do projeto, usados para dar a cara da marca à apresentação. Opcional. */
+  brand?: BrandInfo;
 }
 
 export interface OnboardingOptions {

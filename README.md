@@ -27,6 +27,8 @@ Depois, envie isto para a sua IA:
 
 Para ver o resultado, abra `/onboarding` com o app rodando em dev, ou rode `npx onboarding-kit serve`.
 
+Se você abrir `/onboarding` antes da IA terminar, a página mostra o prompt pronto para copiar, acompanha as seções conforme a IA preenche o arquivo e abre a apresentação sozinha quando ela termina. Sem `onboarding.json`, o prompt já pede para a IA rodar o `init` antes.
+
 ## Comandos
 
 | Comando | O que faz |
@@ -40,11 +42,22 @@ Para ver o resultado, abra `/onboarding` com o app rodando em dev, ou rode `npx 
 
 A página `/onboarding` é um tour em slides, contado como uma história: boas-vindas → o porquê → o negócio → o produto → vocabulário (com cartões que viram e um quiz) → regras do jogo → stack → arquitetura → rodando na máquina → jeito da casa → tour pelo código → cuidados → decisões → primeira missão → final.
 
+Os capítulos entram com uma cortina animada, os elementos aparecem em cascata, o fundo muda de cor junto com o capítulo e os cartões inclinam com o mouse. Tudo isso é desligado quando o sistema pede movimento reduzido.
+
 Navegação por ← →, espaço, swipe no celular ou pelos segmentos coloridos no topo. `O` abre o índice. O progresso e as tarefas marcadas ficam salvos no navegador. Tem tema claro e escuro. Capítulos sem conteúdo são pulados e listas longas viram vários slides.
+
+## Cara da marca
+
+A apresentação usa as cores e o logo do projeto. A IA preenche `brand` (`primaryColor`, `palette`, `logo`, `favicon`) e o que ficar vazio é detectado automaticamente:
+
+- **Cores:** `tailwind.config` (`brand`, `primary`, `accent`, inclusive `colors.indigo`), `@theme` do Tailwind v4, variáveis CSS como `--primary` e `--brand` (hex, rgb, hsl, o formato do shadcn/ui e oklch), variáveis SCSS/LESS, temas JS (`palette.primary.main`) e o `theme_color` do manifest.
+- **Logo e favicon:** `public/`, `assets/`, `src/assets/` e `app/` (`logo.*`, `icon.*`, `favicon.*`). Os arquivos de exemplo do framework (`next.svg`, `vercel.svg`, `vite.svg`…) são ignorados.
+
+Com uma cor, os capítulos variam em torno dela. Com várias, eles se revezam entre elas. Marcas em preto e branco viram um tema monocromático.
 
 ## O que vai no JSON
 
-`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions` e `firstTasks`.
+`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks` e `brand` (cores e logo).
 
 Toda afirmação aponta para arquivos reais (`evidence: ["src/orders/orders.service.ts:42"]`). Quando `project.repoUrl` está preenchido, essas referências viram links para o código.
 

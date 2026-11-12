@@ -34,6 +34,8 @@ const SECTION_INSTRUCTIONS = {
     "Armadilhas e cuidados: comportamentos não óbvios, partes frágeis, workarounds, TODOs/FIXMEs importantes, coisas que costumam quebrar. Só inclua o que tiver evidence.",
   decisions:
     "Decisões de arquitetura perceptíveis no código ou na documentação (ex.: por que tal ORM, monorepo, cache, autenticação). context: o problema. decision: o que foi escolhido. Não invente motivos: se o motivo não está documentado, descreva só a decisão.",
+  brand:
+    "Identidade visual, usada para a apresentação ter a cara da plataforma. primaryColor: a cor principal da marca em hex (#RRGGBB). Procure em tailwind.config (theme.extend.colors: brand, primary), no @theme do Tailwind v4 (--color-primary, --color-brand), em variáveis CSS de globals.css/index.css (--primary, --brand; converta HSL/OKLCH para hex), em temas de MUI/Chakra/styled-components (palette.primary.main) e no theme_color do manifest. palette: 1 a 4 outras cores da marca em hex (secundária, destaque). Ignore branco, preto e cinzas quando houver uma cor de verdade. logo: caminho do logo do projeto (procure em public/, assets/, src/assets/, app/icon.*); prefira SVG e a versão para fundo claro; ignore os arquivos de exemplo do framework (next.svg, vercel.svg, vite.svg, react.svg). favicon: caminho do favicon (public/favicon.ico, app/favicon.ico, app/icon.png). evidence: arquivos de onde tirou as cores. Deixe vazio o que não encontrar: o onboarding-kit tenta detectar sozinho.",
   firstTasks:
     "3 a 5 tarefas pequenas e seguras para alguém novo começar (ex.: um teste faltando, um TODO simples, uma melhoria de mensagem de erro), com os arquivos envolvidos.",
 };
@@ -101,10 +103,17 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
     gotchas: [{ title: "", description: "", evidence: [""] }],
     decisions: [{ title: "", context: "", decision: "", evidence: [""] }],
     firstTasks: [{ title: "", description: "", files: [""] }],
+    brand: { primaryColor: "", palette: [""], logo: "", favicon: "", evidence: [""] },
   };
 }
 
-/** Frase para colar na IA local depois do `init`. */
-export function aiPrompt(file = "onboarding.json"): string {
+/**
+ * Frase para colar na IA local. Com `init`, pede para a IA criar o arquivo antes
+ * (usado quando o onboarding.json ainda não existe).
+ */
+export function aiPrompt(file = "onboarding.json", options: { init?: boolean } = {}): string {
+  if (options.init) {
+    return `Rode "npx onboarding-kit init" na raiz deste projeto para criar o ${file}. Depois leia o arquivo e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.`;
+  }
   return `Leia o arquivo ${file} e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.`;
 }
