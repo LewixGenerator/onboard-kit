@@ -14,7 +14,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "onboarding-kit": "./dist/cli/index.js"
+    "onboarding-kit": "dist/cli/index.js"
   },
   "exports": {
     ".": {
