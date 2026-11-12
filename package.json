@@ -1,6 +1,6 @@
 {
   "name": "onboarding-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Onboarding de projetos gerado pela sua IA local: um JSON descreve o projeto e o onboarding-kit o apresenta em /onboarding.",
   "license": "MIT",
   "repository": {
