@@ -1,6 +1,6 @@
 {
   "name": "onboarding-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Onboarding de projetos gerado pela sua IA local: um JSON descreve o projeto e o onboarding-kit o apresenta em /onboarding.",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -29,9 +29,15 @@
   },
   "typesVersions": {
     "*": {
-      "node": ["./dist/adapters/node.d.ts"],
-      "next": ["./dist/adapters/next.d.ts"],
-      "nest": ["./dist/adapters/nest.d.ts"]
+      "node": [
+        "./dist/adapters/node.d.ts"
+      ],
+      "next": [
+        "./dist/adapters/next.d.ts"
+      ],
+      "nest": [
+        "./dist/adapters/nest.d.ts"
+      ]
     }
   },
   "files": [
