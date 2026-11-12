@@ -134,13 +134,14 @@ function dedupe(colors: Hsl[]): Hsl[] {
 
 /* ───────────────────────── detecção ───────────────────────── */
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".output", ".svelte-kit", "coverage", ".turbo", ".vercel", ".cache", "vendor"]);
-const STYLE_FILE = /(^tailwind\.config\.[cm]?[jt]s$)|(\.(css|scss|sass|less)$)|(^(theme|colors|tokens|palette|brand)\.[cm]?[jt]sx?$)|(^(manifest\.json|site\.webmanifest|manifest\.webmanifest)$)/i;
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".output", ".svelte-kit", ".astro", ".angular", ".expo", ".react-router", "storybook-static", "coverage", ".turbo", ".vercel", ".netlify", ".cache", "vendor", "ios", "android"]);
+const STYLE_FILE =
+  /(^tailwind\.config\.[cm]?[jt]s$)|(^(uno|unocss|panda|windi|app)\.config\.[cm]?[jt]s$)|(\.(css|scss|sass|less|styl|pcss)$)|(^(theme|colors|tokens|palette|brand|vuetify|quasar\.variables)\.[cm]?[jt]sx?$)|(^(App|app|\+layout|Layout|BaseLayout|MainLayout|default)\.(vue|svelte|astro)$)|(^(manifest\.json|site\.webmanifest|manifest\.webmanifest|app\.json)$)/i;
 const MAX_FILES = 40;
 const MAX_STYLE_BYTES = 300_000;
 
 /** Peso do nome da variável: quanto menor, mais "cara da marca". */
-const ROLE_WEIGHT: Record<string, number> = { brand: 0, primary: 1, theme_color: 1.5, themecolor: 1.5, accent: 2, secondary: 3 };
+const ROLE_WEIGHT: Record<string, number> = { brand: 0, primary: 1, primarycolor: 1, theme_color: 1.5, themecolor: 1.5, accent: 2, secondary: 3 };
 
 interface Candidate {
   color: Hsl;
@@ -169,7 +170,8 @@ function listStyleFiles(root: string): string[] {
   };
   walk(root, 0);
   // configs do Tailwind e manifestos primeiro: são as fontes mais confiáveis
-  return found.sort((a, b) => Number(!/tailwind\.config|manifest/i.test(a)) - Number(!/tailwind\.config|manifest/i.test(b)));
+  const first = /tailwind\.config|(uno|unocss|panda)\.config|manifest/i;
+  return found.sort((a, b) => Number(!first.test(a)) - Number(!first.test(b)));
 }
 
 /** Procura cores nomeadas como brand/primary/accent em CSS, SCSS, configs JS/TS e manifestos. */
@@ -184,7 +186,7 @@ export function extractColors(source: string): { role: string; value: string }[]
   // SCSS / LESS: $primary, @brand-color
   for (const m of source.matchAll(new RegExp(`[$@]${ROLE}${SHADE}\\s*:\\s*([^;\\n]+)`, "gi"))) add(m[1], m[2], m.index ?? 0);
   // JS/TS/JSON: primary: "#..." / "brand": "#..." / themeColor: "#..."
-  for (const m of source.matchAll(/["']?(brand|primary|accent|secondary|theme_color|themeColor)["']?\s*:\s*(["'`])([^"'`\n]+)\2/gi)) add(m[1], m[3], m.index ?? 0);
+  for (const m of source.matchAll(/["']?(brand|primary|primaryColor|accent|secondary|theme_color|themeColor)["']?\s*:\s*(["'`])([^"'`\n]+)\2/gi)) add(m[1], m[3], m.index ?? 0);
   // JS/TS: primary: { DEFAULT: "#...", 500: "#..." } e MUI primary: { main: "#..." }
   for (const m of source.matchAll(new RegExp(`["']?${ROLE}["']?\\s*:\\s*\\{([^{}]*)\\}`, "gi"))) {
     const inner = /["']?(?:DEFAULT|main|500|600)["']?\s*:\s*(["'`])([^"'`\n]+)\1/i.exec(m[2]);
@@ -228,9 +230,12 @@ const IMAGE_TYPES: Record<string, string> = {
   ".gif": "image/gif",
   ".ico": "image/x-icon",
 };
-const IMAGE_DIRS = ["public", "public/images", "public/img", "public/assets", "public/static", "static", "assets", "src/assets", "src/assets/images", "app", "src/app"];
+const IMAGE_DIRS = [
+  "public", "public/images", "public/img", "public/assets", "public/static", "public/icons", "static", "static/images", "assets", "assets/images",
+  "src/assets", "src/assets/images", "src/assets/img", "src/lib/assets", "src/images", "src/public", "app", "src/app", "resources", "src-tauri/icons",
+];
 /** Arquivos que vêm nos templates do create-next-app, Vite etc. e não são a marca do projeto. */
-const BOILERPLATE = /^(next|vercel|vite|react|file|globe|window|nuxt|svelte|angular|placeholder)\.(svg|png)$/i;
+const BOILERPLATE = /^(next|vercel|vite|react|file|globe|window|nuxt|svelte|angular|astro|solid|solidjs|preact|qwik|lit|vue|remix|deno|bun|typescript|javascript|electron|expo|placeholder|splash|splash-icon|adaptive-icon)\.(svg|png)$/i;
 const MAX_IMAGE_BYTES = 400_000;
 
 function imageScore(name: string, kind: "logo" | "favicon"): number | undefined {

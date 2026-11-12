@@ -6,7 +6,28 @@
 /** Referência a um trecho do código: "caminho/arquivo.ts" ou "caminho/arquivo.ts:42". */
 export type Evidence = string;
 
-export type Framework = "next" | "nest" | "node";
+export type Framework =
+  | "next"
+  | "nuxt"
+  | "sveltekit"
+  | "astro"
+  | "remix"
+  | "gatsby"
+  | "nest"
+  | "adonis"
+  | "express"
+  | "fastify"
+  | "koa"
+  | "hono"
+  | "elysia"
+  | "angular"
+  | "vite"
+  | "cra"
+  | "webpack"
+  | "react-native"
+  | "electron"
+  | "library"
+  | "node";
 
 export interface OnboardingMeta {
   schemaVersion: string;

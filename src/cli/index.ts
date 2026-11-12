@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, join, relative } from "node:path";
 import { createOnboardingHandler } from "../adapters/node";
+import { detectFramework, FRAMEWORK_IDS, FRAMEWORKS, readProjectManifests } from "../detect";
 import { collectFacts, NOTE_KINDS, TODO_KINDS, type RepoFacts } from "../facts";
 import { DEFAULT_FILE, loadOnboarding, resolveFile } from "../load";
 import { aiPrompt, createTemplate } from "../template";
@@ -33,12 +34,15 @@ ${c.bold("Uso")}
 
 ${c.bold("Opções")}
   --file <caminho>           Arquivo de onboarding (padrão: onboarding.json)
-  --framework <next|nest|node>  Força o framework em vez de detectar (init)
+  --framework <id>           Força o framework em vez de detectar (init). Veja a lista abaixo
   --lang <idioma>            Idioma do conteúdo gerado (init, padrão: pt-BR)
   --no-route                 Não cria/edita a rota no projeto (init)
   --force                    Sobrescreve o onboarding.json existente (init)
   --port <porta>             Porta do serve (padrão: 4321)
   --json                     Saída em JSON (facts)
+
+${c.bold("Frameworks")}
+  ${FRAMEWORK_IDS.join(", ")}
 `;
 
 interface Args {
@@ -65,22 +69,7 @@ function parseArgs(argv: string[]): Args {
   return { command, flags };
 }
 
-function readPackageJson(root: string): Record<string, any> | undefined {
-  const path = join(root, "package.json");
-  if (!existsSync(path)) return undefined;
-  try {
-    return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return undefined;
-  }
-}
-
-export function detectFramework(pkg: Record<string, any> | undefined): Framework {
-  const deps = { ...(pkg?.dependencies ?? {}), ...(pkg?.devDependencies ?? {}) };
-  if (deps.next) return "next";
-  if (deps["@nestjs/core"]) return "nest";
-  return "node";
-}
+export { detectFramework };
 
 function gitHead(cwd: string): string | undefined {
   try {
@@ -113,13 +102,88 @@ import { OnboardingModule } from "onboarding-kit/nest";
   imports: [OnboardingModule.register(), /* ...seus módulos */],
 })`;
 
-const NODE_SNIPPET = `// Express
+const NODE_SNIPPET = `// http nativo
 import { createOnboardingHandler } from "onboarding-kit/node";
-app.get("/onboarding", createOnboardingHandler());
-
-// http nativo
 const onboarding = createOnboardingHandler();
 if (req.url === "/onboarding") return onboarding(req, res);`;
+
+const ROUTE_FILES: Partial<Record<Framework, { file: (ext: string) => string; source: string }>> = {
+  nuxt: {
+    file: (ext) => `server/routes/onboarding.get.${ext}`,
+    source: `import { createOnboardingFetchHandler } from "onboarding-kit/fetch";
+
+// Criado pelo onboarding-kit. Mostra a apresentação do projeto em /onboarding.
+// Fica desligada em produção; para ligar: createOnboardingFetchHandler({ enabled: true }).
+const onboarding = createOnboardingFetchHandler();
+export default defineEventHandler(() => onboarding());
+`,
+  },
+  sveltekit: {
+    file: (ext) => `src/routes/onboarding/+server.${ext}`,
+    source: `import { createOnboardingFetchHandler } from "onboarding-kit/fetch";
+
+// Criado pelo onboarding-kit. Mostra a apresentação do projeto em /onboarding.
+// Fica desligada em produção; para ligar: createOnboardingFetchHandler({ enabled: true }).
+export const GET = createOnboardingFetchHandler();
+`,
+  },
+  cra: {
+    file: () => "src/setupProxy.js",
+    source: `// Criado pelo onboarding-kit. Mostra a apresentação do projeto em /onboarding (só no npm start).
+const { createOnboardingHandler } = require("onboarding-kit/node");
+
+module.exports = function (app) {
+  app.get("/onboarding", createOnboardingHandler());
+};
+`,
+  },
+};
+
+const SNIPPETS: Partial<Record<Framework, string>> = {
+  express: `import { createOnboardingHandler } from "onboarding-kit/express";
+app.get("/onboarding", createOnboardingHandler());`,
+  fastify: `import { fastifyOnboarding } from "onboarding-kit/fastify";
+app.register(fastifyOnboarding);`,
+  koa: `import { createOnboardingMiddleware } from "onboarding-kit/koa";
+app.use(createOnboardingMiddleware());`,
+  hono: `import { createOnboardingFetchHandler } from "onboarding-kit/fetch";
+const onboarding = createOnboardingFetchHandler();
+app.get("/onboarding", () => onboarding());`,
+  elysia: `import { createOnboardingFetchHandler } from "onboarding-kit/fetch";
+const onboarding = createOnboardingFetchHandler();
+app.get("/onboarding", () => onboarding());`,
+  adonis: `// start/routes.ts
+import { createOnboardingFetchHandler } from "onboarding-kit/fetch";
+const onboarding = createOnboardingFetchHandler();
+router.get("/onboarding", async ({ response }) => {
+  const page = await onboarding();
+  response.status(page.status).header("Content-Type", "text/html; charset=utf-8");
+  return page.text();
+});`,
+  astro: `// astro.config.mjs
+import { onboarding } from "onboarding-kit/vite";
+export default defineConfig({ vite: { plugins: [onboarding()] } });`,
+  gatsby: `// gatsby-node.js
+const { createOnboardingHandler } = require("onboarding-kit/node");
+exports.onCreateDevServer = ({ app }) => app.get("/onboarding", createOnboardingHandler());`,
+  webpack: `// webpack.config.js ou vue.config.js
+const { createOnboardingHandler } = require("onboarding-kit/node");
+devServer: {
+  setupMiddlewares(middlewares, devServer) {
+    devServer.app.get("/onboarding", createOnboardingHandler());
+    return middlewares;
+  },
+}`,
+  remix: `// app/routes/onboarding.ts
+import { createOnboardingFetchHandler } from "onboarding-kit/fetch";
+export const loader = createOnboardingFetchHandler();`,
+  vite: `// vite.config.ts
+import { onboarding } from "onboarding-kit/vite";
+export default defineConfig({ plugins: [onboarding()] });`,
+  node: NODE_SNIPPET,
+};
+
+const VITE_CONFIGS = ["vite.config.ts", "vite.config.mts", "vite.config.js", "vite.config.mjs", "vite.config.cjs"];
 
 function setupNext(root: string): string[] {
   const appDir = ["src/app", "app"].find((dir) => existsSync(join(root, dir)));
@@ -146,6 +210,86 @@ export function patchNestAppModule(source: string): string | undefined {
   return `import { OnboardingModule } from "onboarding-kit/nest";\n${withImport}`;
 }
 
+/** Adiciona o plugin onboarding() ao vite.config quando dá para fazer isso com segurança. */
+export function patchViteConfig(source: string): string | undefined {
+  if (source.includes("onboarding-kit/vite")) return source;
+  const cjs = !/^\s*import\s/m.test(source) && /require\(/.test(source);
+  const importLine = cjs ? `const { onboarding } = require("onboarding-kit/vite");` : `import { onboarding } from "onboarding-kit/vite";`;
+  const plugins = source.match(/plugins\s*:\s*\[/g);
+  let patched: string | undefined;
+  if (plugins?.length === 1) {
+    patched = source.replace(/plugins\s*:\s*\[/, (m) => `${m}onboarding(), `).replace(/onboarding\(\), (\s*\])/, "onboarding()$1");
+  } else if (!plugins && (source.match(/defineConfig\(\s*\{/g) ?? []).length === 1) {
+    patched = source.replace(/defineConfig\(\s*\{/, (m) => `${m}\n  plugins: [onboarding()],`);
+  }
+  return patched && `${importLine}\n${patched}`;
+}
+
+function setupVite(root: string, framework: Framework): string[] {
+  const config = VITE_CONFIGS.find((f) => existsSync(join(root, f)));
+  if (config) {
+    const source = readFileSync(join(root, config), "utf8");
+    const patched = patchViteConfig(source);
+    if (patched === source) return [`${c.dim("•")} ${config} já usa o plugin do onboarding-kit`];
+    if (patched) {
+      writeFileSync(join(root, config), patched);
+      return [`${c.green("✓")} Adicionei ${c.bold("onboarding()")} aos plugins do ${config} (rota /onboarding no vite dev)`];
+    }
+  }
+  return [`${c.yellow("!")} Não consegui editar o ${config ?? "vite.config"} sozinho. Adicione:`, "", c.dim(SNIPPETS[framework] ?? SNIPPETS.vite!)];
+}
+
+function createRouteFile(root: string, framework: Framework): string[] {
+  const route = ROUTE_FILES[framework]!;
+  const ext = existsSync(join(root, "tsconfig.json")) ? "ts" : "js";
+  const rel = route.file(ext);
+  if (existsSync(join(root, rel))) {
+    return [`${c.yellow("!")} ${rel} já existe. Para servir em /onboarding, use:`, "", c.dim(framework === "cra" ? `app.get("/onboarding", require("onboarding-kit/node").createOnboardingHandler());` : route.source)];
+  }
+  mkdirSync(dirname(join(root, rel)), { recursive: true });
+  writeFileSync(join(root, rel), route.source);
+  return [`${c.green("✓")} Criei ${c.bold(rel)} (rota /onboarding)`];
+}
+
+/** Para projetos sem servidor web próprio (mobile, desktop, bibliotecas): `npm run onboarding`. */
+function addServeScript(root: string): string[] {
+  const path = join(root, "package.json");
+  if (!existsSync(path)) return [`${c.dim("•")} Para ver a apresentação: ${c.bold("deno run -A npm:onboarding-kit serve")}`];
+  const raw = readFileSync(path, "utf8");
+  const pkg = JSON.parse(raw);
+  if (pkg.scripts?.onboarding) return [`${c.dim("•")} O script ${c.bold("onboarding")} já existe no package.json`];
+  pkg.scripts = { ...(pkg.scripts ?? {}), onboarding: "onboarding-kit serve" };
+  const indent = /^(\s+)"/m.exec(raw)?.[1] ?? "  ";
+  writeFileSync(path, JSON.stringify(pkg, null, indent) + (raw.endsWith("\n") ? "\n" : ""));
+  return [`${c.green("✓")} Adicionei o script ${c.bold("npm run onboarding")} (abre a apresentação em http://localhost:4321)`];
+}
+
+export function setupRoute(root: string, framework: Framework): string[] {
+  switch (framework) {
+    case "next":
+      return setupNext(root);
+    case "nest":
+      return setupNest(root);
+    case "nuxt":
+    case "sveltekit":
+    case "cra":
+      return createRouteFile(root, framework);
+    case "vite":
+      return setupVite(root, framework);
+    case "remix":
+      return VITE_CONFIGS.some((f) => existsSync(join(root, f))) ? setupVite(root, framework) : [`${c.dim("•")} Para servir em /onboarding:`, "", c.dim(SNIPPETS.remix!)];
+    case "angular":
+    case "react-native":
+    case "electron":
+    case "library":
+      return addServeScript(root);
+    default: {
+      const snippet = SNIPPETS[framework] ?? NODE_SNIPPET;
+      return [`${c.dim("•")} Para servir em /onboarding no seu servidor:`, "", c.dim(snippet)];
+    }
+  }
+}
+
 function setupNest(root: string): string[] {
   const file = join(root, "src", "app.module.ts");
   if (existsSync(file)) {
@@ -162,22 +306,23 @@ function setupNest(root: string): string[] {
 
 function cmdInit(flags: Args["flags"]): number {
   const root = process.cwd();
-  const pkg = readPackageJson(root);
-  if (!pkg) {
-    console.error(c.red("✗ Não encontrei package.json. Rode o comando na raiz do projeto."));
+  const { pkg, deno } = readProjectManifests(root);
+  if (!pkg && !deno) {
+    console.error(c.red("✗ Não encontrei package.json nem deno.json. Rode o comando na raiz do projeto."));
     return 1;
   }
 
   const forced = typeof flags.framework === "string" ? (flags.framework as Framework) : undefined;
-  if (forced && !["next", "nest", "node"].includes(forced)) {
-    console.error(c.red(`✗ Framework inválido: ${forced}. Use next, nest ou node.`));
+  if (forced && !FRAMEWORK_IDS.includes(forced)) {
+    console.error(c.red(`✗ Framework inválido: ${forced}. Use um destes: ${FRAMEWORK_IDS.join(", ")}.`));
     return 1;
   }
-  const framework = forced ?? detectFramework(pkg);
+  const framework = forced ?? detectFramework(pkg, deno);
+  const label = FRAMEWORKS.find((f) => f.id === framework)!.label;
   const language = typeof flags.lang === "string" ? flags.lang : "pt-BR";
   const file = resolveFile(typeof flags.file === "string" ? flags.file : undefined);
   const relFile = relative(root, file);
-  const lines: string[] = [`Framework: ${c.bold(framework)}${forced ? "" : c.dim(" (detectado)")}`];
+  const lines: string[] = [`Framework: ${c.bold(label)}${forced ? "" : c.dim(" (detectado)")}`];
 
   if (existsSync(file) && !flags.force) {
     lines.push(`${c.dim("•")} ${relFile} já existe, mantive como está ${c.dim("(use --force para recriar)")}`);
@@ -187,9 +332,7 @@ function cmdInit(flags: Args["flags"]): number {
   }
 
   if (flags.route !== false && !flags["no-route"]) {
-    if (framework === "next") lines.push(...setupNext(root));
-    else if (framework === "nest") lines.push(...setupNest(root));
-    else lines.push(`${c.dim("•")} Para servir em /onboarding no seu servidor:`, "", c.dim(NODE_SNIPPET));
+    lines.push(...setupRoute(root, framework));
   }
 
   const prompt = aiPrompt(relFile);
@@ -259,6 +402,15 @@ export function formatFacts(f: RepoFacts): string {
       .map(([k, v]) => `${k} ${v}`)
       .join(", ");
 
+  section("Projeto");
+  const p = f.project;
+  out.push(`  framework: ${p.frameworkLabel}${p.ui.length ? ` · UI: ${p.ui.join(", ")}` : ""}`);
+  out.push(`  ${p.language}${p.compileToJs.length ? ` + ${p.compileToJs.join(", ")}` : ""} · ${p.moduleSystem} · ${p.runtime}${p.packageManager ? ` · ${p.packageManager}` : ""}${p.monorepo ? ` · monorepo: ${p.monorepo}` : ""}`);
+  if (f.languages.length) {
+    const total = f.languages.reduce((sum, l) => sum + l.files, 0);
+    out.push(`  linguagens: ${f.languages.map((l) => `${l.name} ${Math.round((l.files / total) * 100)}%`).join(", ")}`);
+  }
+
   section("Git");
   if (!f.git) out.push("  (não é um repositório git)");
   else {
@@ -274,7 +426,7 @@ export function formatFacts(f: RepoFacts): string {
   }
 
   section("Arquivos de processo");
-  const labels: Record<string, string> = { ci: "CI/CD", hooks: "Git hooks", commitRules: "Regras de commit/release", pullRequests: "PRs e donos de código", docs: "Documentação", lint: "Lint e formatação", containers: "Containers e infra", monorepo: "Monorepo" };
+  const labels: Record<string, string> = { ci: "CI/CD", hooks: "Git hooks", commitRules: "Regras de commit/release", pullRequests: "PRs e donos de código", docs: "Documentação", lint: "Lint e formatação", containers: "Containers e infra", deploy: "Deploy e empacotamento", monorepo: "Monorepo" };
   const groups = Object.entries(f.files);
   if (!groups.length) out.push("  (nenhum encontrado)");
   for (const [key, files] of groups) out.push(`  ${labels[key] ?? key}: ${files.join(", ")}`);

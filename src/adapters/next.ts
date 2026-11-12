@@ -1,6 +1,7 @@
 import { HTML_HEADERS, renderOnboardingPage } from "../index";
 import { resolveEnabled } from "../load";
 import type { OnboardingOptions } from "../types";
+import { createOnboardingFetchHandler } from "./fetch";
 
 export type { OnboardingOptions };
 
@@ -14,12 +15,9 @@ export type { OnboardingOptions };
  *   export const GET = createOnboardingRoute();
  */
 export function createOnboardingRoute(options: OnboardingOptions = {}) {
+  const onboarding = createOnboardingFetchHandler(options);
   return async function GET(): Promise<Response> {
-    if (!resolveEnabled(options)) {
-      return new Response("Not Found", { status: 404 });
-    }
-    const page = await renderOnboardingPage(options.file);
-    return new Response(page.html, { status: page.status, headers: HTML_HEADERS });
+    return onboarding();
   };
 }
 

@@ -311,7 +311,8 @@ test("adapter Next: devolve Response com HTML e página de arquivo ausente", asy
 test("detectFramework e patch do app.module do Nest", () => {
   assert.equal(cli.detectFramework({ dependencies: { next: "15" } }), "next");
   assert.equal(cli.detectFramework({ dependencies: { "@nestjs/core": "11" } }), "nest");
-  assert.equal(cli.detectFramework({ dependencies: { express: "4" } }), "node");
+  assert.equal(cli.detectFramework({ dependencies: { express: "4" } }), "express");
+  assert.equal(cli.detectFramework({ private: true, dependencies: { lodash: "4" } }), "node");
 
   const src = `import { Module } from '@nestjs/common';\n@Module({\n  imports: [UsersModule],\n})\nexport class AppModule {}\n`;
   const patched = cli.patchNestAppModule(src);
@@ -325,7 +326,7 @@ test("detectFramework e patch do app.module do Nest", () => {
 test("CLI init em projeto Next cria JSON e rota", () => {
   const root = tmpProject({ "package.json": JSON.stringify({ dependencies: { next: "16.0.0" } }), "tsconfig.json": "{}", "src/app/page.tsx": "" });
   const out = execFileSync("node", [CLI, "init"], { cwd: root }).toString();
-  assert.match(out, /Framework: .*next/);
+  assert.match(out, /Framework: .*Next\.js/);
   const data = JSON.parse(readFileSync(join(root, "onboarding.json"), "utf8"));
   assert.equal(data.meta.framework, "next");
   assert.ok(existsSync(join(root, "src/app/onboarding/route.ts")));
@@ -342,4 +343,165 @@ test("CLI validate sai com código 1 no template e 0 preenchido", () => {
   writeFileSync(join(root, "onboarding.json"), JSON.stringify(filledData()));
   const out = execFileSync("node", [CLI, "validate"], { cwd: root }).toString();
   assert.match(out, /válido/);
+});
+
+test("detectFramework reconhece o ecossistema JavaScript", () => {
+  const cases = {
+    nuxt: { nuxt: "3" },
+    sveltekit: { "@sveltejs/kit": "2", vite: "5" },
+    astro: { astro: "5", react: "19" },
+    remix: { "@react-router/dev": "7", vite: "6" },
+    gatsby: { gatsby: "5" },
+    adonis: { "@adonisjs/core": "6" },
+    fastify: { fastify: "5" },
+    koa: { koa: "2" },
+    hono: { hono: "4" },
+    elysia: { elysia: "1" },
+    angular: { "@angular/core": "19" },
+    vite: { vite: "6", vue: "3" },
+    cra: { "react-scripts": "5" },
+    webpack: { "@vue/cli-service": "5" },
+    "react-native": { expo: "52", "react-native": "0.76" },
+    electron: { electron: "33", vite: "6" },
+  };
+  for (const [expected, deps] of Object.entries(cases)) assert.equal(cli.detectFramework({ devDependencies: deps }), expected, expected);
+  assert.equal(cli.detectFramework({ name: "lib", main: "index.js" }), "library");
+  assert.equal(cli.detectFramework({ name: "tool", private: true, bin: { tool: "cli.js" } }), "library");
+  // Deno: mapa de imports do deno.json
+  assert.equal(cli.detectFramework(undefined, { imports: { "@hono/hono": "jsr:@hono/hono@^4" } }), "hono");
+  // todo framework tem instrução própria para a IA
+  for (const { id } of kit.FRAMEWORKS) assert.ok(kit.createTemplate({ framework: id })._instructions.framework.length > 40, id);
+});
+
+test("detectProject: UI, linguagem, runtime e linguagens no facts", () => {
+  const root = tmpProject({
+    "package.json": JSON.stringify({ type: "module", devDependencies: { vite: "6", vue: "3", rescript: "11" } }),
+    "pnpm-lock.yaml": "",
+    "tsconfig.json": "{}",
+    "src/App.vue": "<template><div/></template>",
+    "src/main.ts": "",
+    "src/Button.res": "",
+    "src/style.styl": "",
+  });
+  const p = kit.detectProject(root);
+  assert.equal(p.framework, "vite");
+  assert.deepEqual(p.ui, ["Vue"]);
+  assert.equal(p.language, "TypeScript");
+  assert.deepEqual(p.compileToJs, ["ReScript"]);
+  assert.equal(p.moduleSystem, "ESM");
+  assert.equal(p.packageManager, "pnpm");
+  const facts = require("../dist/facts.js").collectFacts(root);
+  const langs = facts.languages.map((l) => l.name);
+  for (const l of ["Vue", "TypeScript", "ReScript", "Stylus"]) assert.ok(langs.includes(l), l);
+  assert.match(cli.formatFacts(facts), /UI: Vue/);
+});
+
+test("marcadores em arquivos Vue, Svelte, CoffeeScript e MDX", () => {
+  const root = tmpProject({
+    "src/App.vue": "<script setup>\n// TODO: trocar por Pinia\n</script>",
+    "src/Card.svelte": "<!-- FIXME: acessibilidade -->",
+    "src/legacy.coffee": "# HACK: compat com IE",
+    "docs/intro.mdx": "{/* NOTE: gerado */}",
+  });
+  const scan = require("../dist/facts.js").scanMarkers(root);
+  assert.deepEqual(Object.keys(scan.counts).sort(), ["FIXME", "HACK", "NOTE", "TODO"]);
+});
+
+test("adapters fetch, vite, fastify e koa", async () => {
+  const root = tmpProject({ "onboarding.json": JSON.stringify(filledData()) });
+  const file = join(root, "onboarding.json");
+
+  const { createOnboardingFetchHandler } = require("../dist/adapters/fetch.js");
+  const res = await createOnboardingFetchHandler({ file, enabled: true })(new Request("http://x/onboarding"));
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /Loja/);
+  assert.equal((await createOnboardingFetchHandler({ file, enabled: false })()).status, 404);
+
+  const { onboarding } = require("../dist/adapters/vite.js");
+  const plugin = onboarding({ file });
+  assert.equal(plugin.apply, "serve");
+  let middleware;
+  plugin.configureServer({ config: { base: "/" }, middlewares: { use: (fn) => (middleware = fn) } });
+  const server = http.createServer((req, res) => middleware(req, res, () => { res.writeHead(418); res.end(); }));
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  assert.equal((await fetch(`${base}/onboarding?x=1`)).status, 200);
+  assert.equal((await fetch(`${base}/outra`)).status, 418);
+  server.close();
+
+  const { fastifyOnboarding } = require("../dist/adapters/fastify.js");
+  const routes = {};
+  let doneCalled = false;
+  fastifyOnboarding({ get: (path, h) => (routes[path] = h) }, { file, enabled: true, path: "/docs/onboarding" }, () => (doneCalled = true));
+  assert.ok(doneCalled);
+  const reply = { sent: undefined, status: 0, hdrs: {}, code(s) { this.status = s; return this; }, headers(h) { Object.assign(this.hdrs, h); return this; }, send(b) { this.sent = b; return this; } };
+  await routes["/docs/onboarding"]({}, reply);
+  assert.equal(reply.status, 200);
+  assert.match(reply.hdrs["Content-Type"], /text\/html/);
+
+  const { createOnboardingMiddleware } = require("../dist/adapters/koa.js");
+  const mw = createOnboardingMiddleware({ file, enabled: true });
+  const ctx = { method: "GET", path: "/onboarding", status: 404, body: undefined, headers: {}, set(h) { Object.assign(this.headers, h); } };
+  await mw(ctx, async () => assert.fail("não deveria chamar next"));
+  assert.equal(ctx.status, 200);
+  assert.match(ctx.body, /Loja/);
+  let nextCalled = false;
+  await mw({ ...ctx, path: "/" }, async () => (nextCalled = true));
+  assert.ok(nextCalled);
+
+  assert.equal(typeof require("../dist/adapters/express.js").createOnboardingHandler, "function");
+});
+
+test("patchViteConfig adiciona o plugin com segurança", () => {
+  const esm = `import { defineConfig } from "vite";\nimport react from "@vitejs/plugin-react";\nexport default defineConfig({\n  plugins: [react()],\n});\n`;
+  const patched = cli.patchViteConfig(esm);
+  assert.match(patched, /^import \{ onboarding \} from "onboarding-kit\/vite";/);
+  assert.match(patched, /plugins: \[onboarding\(\), react\(\)\]/);
+  assert.equal(cli.patchViteConfig(patched), patched);
+  assert.match(cli.patchViteConfig(`export default defineConfig({ plugins: [] })`), /plugins: \[onboarding\(\)\]/);
+  assert.match(cli.patchViteConfig(`export default defineConfig({\n  server: { port: 3000 },\n})`), /plugins: \[onboarding\(\)\],\n  server/);
+  assert.match(cli.patchViteConfig(`const { defineConfig } = require("vite");\nmodule.exports = defineConfig({ plugins: [vue()] });`), /^const \{ onboarding \} = require/);
+  assert.equal(cli.patchViteConfig(`export default { plugins: [a()], worker: { plugins: [b()] } }`), undefined);
+});
+
+test("CLI init: Nuxt, SvelteKit, Vite, CRA e projetos sem servidor", () => {
+  const nuxt = tmpProject({ "package.json": JSON.stringify({ dependencies: { nuxt: "3" } }), "tsconfig.json": "{}" });
+  execFileSync("node", [CLI, "init"], { cwd: nuxt });
+  assert.match(readFileSync(join(nuxt, "server/routes/onboarding.get.ts"), "utf8"), /defineEventHandler/);
+
+  const kitApp = tmpProject({ "package.json": JSON.stringify({ devDependencies: { "@sveltejs/kit": "2" } }) });
+  execFileSync("node", [CLI, "init"], { cwd: kitApp });
+  assert.ok(existsSync(join(kitApp, "src/routes/onboarding/+server.js")));
+
+  const vite = tmpProject({
+    "package.json": JSON.stringify({ devDependencies: { vite: "6", react: "19" } }),
+    "vite.config.ts": `import { defineConfig } from "vite";\nexport default defineConfig({ plugins: [react()] });\n`,
+  });
+  const out = execFileSync("node", [CLI, "init"], { cwd: vite }).toString();
+  assert.match(out, /Framework: .*Vite/);
+  assert.match(readFileSync(join(vite, "vite.config.ts"), "utf8"), /plugins: \[onboarding\(\), react\(\)\]/);
+
+  const cra = tmpProject({ "package.json": JSON.stringify({ dependencies: { "react-scripts": "5" } }) });
+  execFileSync("node", [CLI, "init"], { cwd: cra });
+  assert.match(readFileSync(join(cra, "src/setupProxy.js"), "utf8"), /createOnboardingHandler/);
+
+  const rn = tmpProject({ "package.json": JSON.stringify({ name: "app", dependencies: { expo: "52" }, scripts: { start: "expo start" } }, null, 4) + "\n" });
+  execFileSync("node", [CLI, "init"], { cwd: rn });
+  const pkg = readFileSync(join(rn, "package.json"), "utf8");
+  assert.equal(JSON.parse(pkg).scripts.onboarding, "onboarding-kit serve");
+  assert.match(pkg, /^ {4}"name"/m);
+
+  const deno = tmpProject({ "deno.json": JSON.stringify({ imports: { hono: "jsr:@hono/hono@^4" } }) });
+  const denoOut = execFileSync("node", [CLI, "init"], { cwd: deno }).toString();
+  assert.match(denoOut, /Hono/);
+  assert.match(denoOut, /onboarding-kit\/fetch/);
+
+  assert.throws(() => execFileSync("node", [CLI, "init", "--framework", "rails"], { cwd: deno, stdio: "pipe" }));
+});
+
+test("cores da marca em Expo, Vuetify e blocos <style> de Vue", () => {
+  const expo = tmpProject({ "app.json": JSON.stringify({ expo: { name: "x", primaryColor: "#e11d48" } }) });
+  assert.equal(kit.toHex(kit.resolveBrand({}, expo).colors[0]), "#e11d48");
+  const vue = tmpProject({ "src/App.vue": "<template/>\n<style>\n:root { --brand: #0ea5e9; }\n</style>" });
+  assert.equal(kit.toHex(kit.resolveBrand({}, vue).colors[0]), "#0ea5e9");
 });

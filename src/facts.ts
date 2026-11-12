@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
+import { dependencyNames, detectProject, LANGUAGE_BY_EXT, readProjectManifests, type ProjectProfile } from "./detect";
 
 /* ───────────────────────── marcadores no código ───────────────────────── */
 
@@ -23,12 +24,14 @@ export interface MarkerScan {
 }
 
 const CODE_EXT = new Set([
-  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte", ".astro",
+  ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte", ".astro", ".mdx", ".marko", ".gjs", ".gts",
+  ".hbs", ".handlebars", ".ejs", ".pug", ".njk", ".liquid", ".coffee", ".res", ".resi", ".re", ".rei", ".elm", ".purs", ".cljs", ".cljc", ".civet", ".imba",
+  ".styl", ".pcss",
   ".py", ".rb", ".go", ".rs", ".java", ".kt", ".cs", ".php", ".swift", ".dart", ".scala", ".ex", ".exs",
   ".css", ".scss", ".sass", ".less", ".html", ".sql", ".prisma", ".graphql", ".gql",
   ".sh", ".yml", ".yaml", ".toml", ".tf",
 ]);
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".output", ".svelte-kit", "coverage", ".turbo", ".vercel", ".cache", "vendor", "generated", "__generated__", "tmp"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".output", ".svelte-kit", ".astro", ".angular", ".expo", ".docusaurus", ".react-router", "storybook-static", "coverage", ".turbo", ".vercel", ".netlify", ".cache", "vendor", "generated", "__generated__", "tmp", "ios/Pods", "Pods"]);
 const MAX_FILES = 4000;
 const MAX_BYTES = 400_000;
 /** Só conta o marcador quando ele está num comentário, em maiúsculas (evita "todo" em texto comum). */
@@ -191,6 +194,10 @@ export function gitFacts(root: string): GitFacts | undefined {
 /* ───────────────────────── arquivos que revelam o processo ───────────────────────── */
 
 export interface RepoFacts {
+  /** Framework, UI, runtime, gerenciador de pacotes e linguagem detectados. */
+  project: ProjectProfile;
+  /** Linguagens do repositório por quantidade de arquivos, da mais usada para a menos. */
+  languages: { name: string; files: number }[];
   git?: GitFacts;
   /** Arquivos de processo agrupados: CI, hooks, commitlint, templates de PR, docs... */
   files: Record<string, string[]>;
@@ -203,16 +210,31 @@ export interface RepoFacts {
 const FILE_GROUPS: [string, RegExp][] = [
   ["ci", /^(\.github\/workflows\/.+\.ya?ml|\.gitlab-ci\.yml|\.circleci\/config\.yml|azure-pipelines\.yml|bitbucket-pipelines\.yml|Jenkinsfile|\.drone\.yml|vercel\.json|netlify\.toml)$/i],
   ["hooks", /^(\.husky\/[^_][^/]*|\.lintstagedrc.*|lint-staged\.config\.[cm]?js|\.pre-commit-config\.yaml|lefthook\.ya?ml)$/i],
-  ["commitRules", /^(commitlint\.config\.[cm]?[jt]s|\.commitlintrc.*|\.czrc|\.cz-config\.[cm]?js|release\.config\.[cm]?js|\.releaserc.*|\.changeset\/config\.json)$/i],
+  ["commitRules", /^(commitlint\.config\.[cm]?[jt]s|release-please-config\.json|\.versionrc.*|\.commitlintrc.*|\.czrc|\.cz-config\.[cm]?js|release\.config\.[cm]?js|\.releaserc.*|\.changeset\/config\.json)$/i],
   ["pullRequests", /^(\.github\/(pull_request_template\.md|PULL_REQUEST_TEMPLATE\/.+)|\.github\/CODEOWNERS|CODEOWNERS|docs\/CODEOWNERS|\.gitlab\/merge_request_templates\/.+)$/i],
   ["docs", /^((README|CONTRIBUTING|CHANGELOG|ARCHITECTURE|SECURITY|CODE_OF_CONDUCT|DEVELOPMENT|SETUP)\.md|docs?\/.+\.mdx?|adrs?\/.+\.md|.+\/adr\/.+\.md|.+\/decisions\/.+\.md)$/i],
-  ["lint", /^(\.eslintrc.*|eslint\.config\.[cm]?[jt]s|\.prettierrc.*|prettier\.config\.[cm]?js|biome\.jsonc?|\.editorconfig|\.stylelintrc.*)$/i],
+  ["lint", /^(\.oxlintrc\.json|deno\.jsonc?|\.eslintrc.*|eslint\.config\.[cm]?[jt]s|\.prettierrc.*|prettier\.config\.[cm]?js|biome\.jsonc?|\.editorconfig|\.stylelintrc.*)$/i],
   ["containers", /(^|\/)(Dockerfile[^/]*|docker-compose[^/]*\.ya?ml|compose\.ya?ml|k8s\/.+|helm\/.+|.+\.tf)$/i],
-  ["monorepo", /^(pnpm-workspace\.yaml|turbo\.json|nx\.json|lerna\.json|rush\.json)$/i],
+  ["deploy", /^(fly\.toml|render\.yaml|railway\.(json|toml)|wrangler\.(toml|jsonc?)|eas\.json|Procfile|app\.yaml|amplify\.yml|serverless\.(yml|ts)|electron-builder\.(ya?ml|json)|forge\.config\.[cm]?[jt]s|capacitor\.config\.[jt]s|sst\.config\.ts)$/i],
+  ["monorepo", /^(pnpm-workspace\.yaml|turbo\.json|nx\.json|lerna\.json|rush\.json|\.moon\/workspace\.yml)$/i],
 ];
-const TEST_FILE = /(\.|_)(test|spec)\.[cm]?[jt]sx?$|(^|\/)(__tests__|tests?|e2e|cypress|playwright)\//i;
-const SOURCE_FILE = /\.([cm]?[jt]sx?|py|go|rb|java|kt|cs|php|rs|vue|svelte)$/i;
-const TEST_FRAMEWORKS = ["jest", "vitest", "mocha", "ava", "@playwright/test", "cypress", "@testing-library/react", "supertest", "jasmine", "karma"];
+const TEST_FILE = /(\.|_)(test|spec|e2e-spec|cy)\.([cm]?[jt]sx?|coffee|res)$|(^|\/)(__tests__|tests?|e2e|cypress|playwright)\//i;
+const SOURCE_FILE = /\.([cm]?[jt]sx?|vue|svelte|astro|marko|gjs|gts|coffee|res|elm|purs|cljs|civet|imba|py|go|rb|java|kt|cs|php|rs)$/i;
+const TEST_FRAMEWORKS = [
+  "jest", "vitest", "mocha", "ava", "tap", "uvu", "jasmine", "karma", "@web/test-runner",
+  "@playwright/test", "cypress", "puppeteer", "@wdio/cli", "detox",
+  "@testing-library/react", "@testing-library/vue", "@testing-library/svelte", "@testing-library/angular", "@testing-library/react-native",
+  "@vue/test-utils", "@storybook/test", "supertest", "msw", "nock",
+];
+/** Libs que revelam como o sistema conversa por dentro e com o mundo. */
+const ARCHITECTURE_DEPS: [string, string][] = [
+  ["@nestjs/microservices", "NestJS microservices"], ["kafkajs", "Kafka"], ["amqplib", "RabbitMQ"], ["bullmq", "filas BullMQ"], ["bull", "filas Bull"],
+  ["@aws-sdk/client-sqs", "AWS SQS"], ["nats", "NATS"], ["@temporalio/client", "Temporal"], ["inngest", "Inngest"], ["@trigger.dev/sdk", "Trigger.dev"],
+  ["@grpc/grpc-js", "gRPC"], ["@apollo/federation", "GraphQL federation"], ["@apollo/subgraph", "GraphQL federation"], ["@trpc/server", "tRPC"],
+  ["graphql", "GraphQL"], ["socket.io", "WebSockets (socket.io)"], ["ws", "WebSockets"], ["@module-federation/enhanced", "micro-frontends (Module Federation)"],
+  ["single-spa", "micro-frontends (single-spa)"], ["xstate", "máquinas de estado (XState)"], ["effect", "Effect"], ["inversify", "injeção de dependência (Inversify)"],
+  ["tsyringe", "injeção de dependência (tsyringe)"], ["awilix", "injeção de dependência (Awilix)"], ["@cloudflare/workers-types", "Cloudflare Workers"], ["wrangler", "Cloudflare Workers"],
+];
 
 export function collectFacts(root: string): RepoFacts {
   const files = listRepoFiles(root);
@@ -222,13 +244,15 @@ export function collectFacts(root: string): RepoFacts {
     if (hits.length) groups[name] = hits.slice(0, 25);
   }
 
-  let pkg: Record<string, any> = {};
-  try {
-    pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  } catch {
-    // projeto sem package.json
+  const manifests = readProjectManifests(root);
+  const pkg = manifests.pkg ?? {};
+  const deps = dependencyNames(manifests.pkg, manifests.deno);
+
+  const languageCounts: Record<string, number> = {};
+  for (const f of files) {
+    const lang = LANGUAGE_BY_EXT[extname(f).toLowerCase()];
+    if (lang && !f.split("/").some((p) => SKIP_DIRS.has(p)) && !/\.d\.[cm]?ts$|\.min\./.test(f)) languageCounts[lang] = (languageCounts[lang] ?? 0) + 1;
   }
-  const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
 
   const code = files.filter((f) => SOURCE_FILE.test(f) && !f.split("/").some((p) => SKIP_DIRS.has(p)));
   const tests = code.filter((f) => TEST_FILE.test(f));
@@ -241,15 +265,27 @@ export function collectFacts(root: string): RepoFacts {
   const serviceDirs = [...new Set(files.map((f) => /^(apps|services|packages|microservices)\/([^/]+)\//.exec(f)).filter(Boolean).map((m) => `${m![1]}/${m![2]}`))];
   if (serviceDirs.length) signals.push(`pastas de apps/serviços: ${serviceDirs.slice(0, 12).join(", ")}`);
   if (existsSync(join(root, "serverless.yml")) || existsSync(join(root, "serverless.ts"))) signals.push("serverless.yml (Serverless Framework)");
-  for (const [dep, label] of [["@nestjs/microservices", "NestJS microservices"], ["kafkajs", "Kafka"], ["amqplib", "RabbitMQ"], ["bullmq", "filas BullMQ"], ["@grpc/grpc-js", "gRPC"], ["@apollo/federation", "GraphQL federation"]] as const) {
-    if (deps[dep]) signals.push(`${label} (${dep})`);
+  const seen = new Set<string>();
+  for (const [dep, label] of ARCHITECTURE_DEPS) {
+    if (deps[dep] && !seen.has(label)) {
+      seen.add(label);
+      signals.push(`${label} (${dep})`);
+    }
   }
+  if (files.some((f) => /(^|\/)wrangler\.(toml|jsonc?)$/.test(f)) && !seen.has("Cloudflare Workers")) signals.push("Cloudflare Workers (wrangler)");
+  const fnDirs = ["netlify/functions", "api", "functions", "supabase/functions", "amplify"].filter((dir) => files.some((f) => f.startsWith(`${dir}/`)));
+  if (fnDirs.length && (existsSync(join(root, "vercel.json")) || existsSync(join(root, "netlify.toml")) || fnDirs.some((d) => d !== "api"))) signals.push(`funções serverless: ${fnDirs.join(", ")}`);
   const layered = ["domain", "application", "infrastructure", "infra", "adapters", "ports", "use-cases", "usecases", "entities", "repositories", "controllers", "services"].filter((dir) =>
     files.some((f) => f.split("/").slice(0, -1).includes(dir)),
   );
   if (layered.length >= 2) signals.push(`pastas de camadas: ${layered.join(", ")}`);
 
   return {
+    project: detectProject(root),
+    languages: Object.entries(languageCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([name, count]) => ({ name, files: count })),
     git: gitFacts(root),
     files: groups,
     tests: {

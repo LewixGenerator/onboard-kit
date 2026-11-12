@@ -7,6 +7,8 @@ export { createTemplate, aiPrompt, SCHEMA_VERSION } from "./template";
 export { loadOnboarding, resolveEnabled, resolveFile, isBlank, DEFAULT_FILE } from "./load";
 export { validateOnboarding, parseEvidence } from "./validate";
 export { resolveBrand, parseColor, toHex } from "./brand";
+export { detectFramework, detectProject, FRAMEWORKS } from "./detect";
+export type { ProjectProfile } from "./detect";
 export type { Hsl, ResolvedBrand } from "./brand";
 export type { Issue, ValidateOptions } from "./validate";
 export { renderOnboarding, escapeHtml } from "./render";
