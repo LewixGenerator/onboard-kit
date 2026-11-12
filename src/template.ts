@@ -1,0 +1,110 @@
+import type { Framework, OnboardingData } from "./types";
+
+export const SCHEMA_VERSION = "1";
+
+const FRAMEWORK_HINTS: Record<Framework, string> = {
+  next:
+    "Projeto Next.js. Identifique se usa App Router (app/) ou Pages Router (pages/), as rotas e layouts, Server Components e Client Components ('use client'), Server Actions, route handlers (app/**/route.ts), middleware.ts, estratégia de fetch e cache, autenticação, estilização (Tailwind, CSS Modules etc.) e onde fica o acesso a dados. Use as rotas principais como base para features e tours. Ignore a rota app/onboarding criada pelo onboard-kit.",
+  nest:
+    "Projeto NestJS. Mapeie os módulos (*.module.ts) e as dependências entre eles para architecture.modules e o diagrama. Levante controllers e rotas, providers e services, guards, interceptors, pipes, DTOs e validação (class-validator), entidades e ORM (TypeORM, Prisma, Mongoose), filas, jobs agendados e configuração (ConfigModule). As regras de negócio costumam estar nos services. Ignore o OnboardingModule do onboard-kit.",
+  node:
+    "Projeto Node.js. Identifique o ponto de entrada (main e scripts do package.json), o framework HTTP (Express, Fastify, Koa ou http nativo), a organização de rotas e middlewares, o acesso a dados, jobs/workers e scripts utilitários.",
+};
+
+const SECTION_INSTRUCTIONS = {
+  project:
+    "name: nome do projeto. tagline: uma frase que resume o projeto. purpose: 2 a 4 frases sobre o problema que ele resolve e para quem. audience: quem usa o produto (usuários finais, não devs). status: fase do projeto (ex.: em produção, MVP, em migração). repoUrl: URL do repositório (git remote get-url origin, convertida para https), vazio se não houver.",
+  business:
+    "Explique o negócio para alguém que nunca ouviu falar do produto. model: como o produto gera valor ou receita (assinatura, comissão, venda, uso interno...). Baseie-se em planos, pagamentos, roles e docs do repositório; se não der para inferir a receita, descreva o valor gerado sem inventar. valueProposition: o que o produto resolve para quem usa, em 1 ou 2 frases. actors: os perfis que participam (tipos de usuário, roles, sistemas parceiros), com evidence de onde aparecem no código. flows: 1 a 3 jornadas principais (ex.: 'Do cadastro à primeira compra'), cada uma com 3 a 6 passos curtos e evidence.",
+  gettingStarted:
+    "prerequisites: o que precisa estar instalado (versão do Node, banco, Docker...). setup: passos em ordem para rodar localmente pela primeira vez. commands: scripts úteis do package.json com o comando exato e o que fazem. envVars: variáveis de ambiente (de .env.example, código ou docs) com nome, para que servem e se são obrigatórias. NUNCA inclua valores.",
+  stack:
+    "Uma entrada por tecnologia relevante (linguagem, framework, banco, ORM, auth, testes, lint, deploy, filas, libs centrais). category: ex. framework, database, orm, testing, styling, infra. version: do package.json/lockfile. why: para que é usada NESTE projeto. evidence: onde aparece (package.json, arquivo de config ou de uso).",
+  architecture:
+    "summary: como o código está organizado e como uma requisição/ação flui pelo sistema. diagram: diagrama Mermaid (graph TD ou flowchart) com os principais módulos e integrações externas, sem cercas ```. modules: pastas ou módulos principais com path e responsibility.",
+  conventions:
+    "Padrões de código que alguém novo precisa seguir: nomenclatura, estrutura de pastas, tratamento de erro, validação, padrões de componentes, testes, commits, lint/format. example: trecho curto real ou ilustrativo. evidence obrigatória.",
+  domain:
+    "glossary: termos do negócio que aparecem no código e nas telas, com definição em linguagem simples. businessRules: regras de negócio macro (ex.: quem pode fazer o quê, limites, cálculos, estados de um pedido), com evidence apontando onde a regra está implementada.",
+  features:
+    "Funcionalidades do produto do ponto de vista do usuário. entryPoints: arquivos onde a feature começa (página, controller, rota). status: ex. estável, beta, em desenvolvimento, descontinuada.",
+  tours:
+    "1 a 3 tours guiados pelo código, ex.: 'Como uma requisição é atendida', 'Ciclo de vida de um pedido'. Cada step aponta um arquivo (com linha quando ajudar) e explica o que olhar ali. Ordene os steps na sequência de leitura.",
+  gotchas:
+    "Armadilhas e cuidados: comportamentos não óbvios, partes frágeis, workarounds, TODOs/FIXMEs importantes, coisas que costumam quebrar. Só inclua o que tiver evidence.",
+  decisions:
+    "Decisões de arquitetura perceptíveis no código ou na documentação (ex.: por que tal ORM, monorepo, cache, autenticação). context: o problema. decision: o que foi escolhido. Não invente motivos: se o motivo não está documentado, descreva só a decisão.",
+  firstTasks:
+    "3 a 5 tarefas pequenas e seguras para alguém novo começar (ex.: um teste faltando, um TODO simples, uma melhoria de mensagem de erro), com os arquivos envolvidos.",
+};
+
+export interface TemplateOptions {
+  framework: Framework;
+  language?: string;
+}
+
+export function createTemplate({ framework, language = "pt-BR" }: TemplateOptions): OnboardingData {
+  return {
+    _instructions: {
+      readme:
+        "Você é a IA local deste projeto. Sua tarefa é preencher este arquivo analisando o código do repositório. O resultado será exibido em /onboarding para quem está chegando no projeto.",
+      steps: [
+        "1. Leia este arquivo inteiro antes de começar, incluindo _instructions.sections.",
+        "2. Explore o repositório: package.json e lockfile, README e docs, arquivos de config (tsconfig, eslint, prettier, next.config, nest-cli.json, docker, CI), código-fonte, testes e .env.example.",
+        "3. Preencha cada seção seguindo _instructions.sections.<seção> e _instructions.framework. Os arrays vêm com um item modelo em branco: substitua-o por itens reais, quantos forem necessários. Se não houver nada real para a seção, deixe o array vazio ([]).",
+        "4. Preencha meta: status = \"filled\", generatedAt = data e hora atuais em ISO 8601, generatedBy = nome da ferramenta e do modelo, commit = saída de `git rev-parse HEAD` (vazio se não houver git).",
+        "5. Rode `npx onboard-kit validate` e corrija tudo o que ele apontar até passar sem erros.",
+      ],
+      rules: [
+        "Escreva todo o conteúdo no idioma de meta.language.",
+        "Nunca invente. Toda afirmação sobre stack, convenções, regras, decisões e armadilhas precisa de evidence com arquivos reais, no formato caminho/relativo ou caminho/relativo:linha. Se não encontrar evidência, não inclua o item.",
+        "Caminhos são relativos à raiz do repositório e usam '/'.",
+        "Nunca copie segredos: valores de .env, tokens, chaves de API, senhas ou URLs com credenciais. Em envVars descreva apenas o nome e a finalidade.",
+        "Mantenha o JSON válido. Não renomeie nem remova chaves e não apague _instructions: ele é usado nas próximas atualizações.",
+        "Escreva de forma curta, direta e humana, como um colega explicando o projeto: quem lê é uma pessoa no primeiro dia. O conteúdo vira slides, então prefira frases curtas a parágrafos longos.",
+        "Se meta.status já for \"filled\", você está ATUALIZANDO: use `git diff <meta.commit>..HEAD` para revisar apenas o que mudou, mantenha o restante e atualize meta.commit e meta.generatedAt.",
+      ],
+      framework: FRAMEWORK_HINTS[framework],
+      sections: SECTION_INSTRUCTIONS,
+    },
+    meta: {
+      schemaVersion: SCHEMA_VERSION,
+      status: "pending",
+      language,
+      framework,
+      generatedAt: "",
+      generatedBy: "",
+      commit: "",
+    },
+    project: { name: "", tagline: "", purpose: "", audience: "", status: "", repoUrl: "" },
+    business: {
+      model: "",
+      valueProposition: "",
+      actors: [{ name: "", description: "", evidence: [""] }],
+      flows: [{ name: "", steps: [""], evidence: [""] }],
+    },
+    gettingStarted: {
+      prerequisites: [""],
+      setup: [""],
+      commands: [{ name: "", command: "", description: "" }],
+      envVars: [{ name: "", description: "", required: false }],
+    },
+    stack: [{ name: "", category: "", version: "", why: "", evidence: [""] }],
+    architecture: { summary: "", diagram: "", modules: [{ name: "", path: "", responsibility: "" }] },
+    conventions: [{ title: "", description: "", example: "", evidence: [""] }],
+    domain: {
+      glossary: [{ term: "", definition: "" }],
+      businessRules: [{ title: "", description: "", evidence: [""] }],
+    },
+    features: [{ name: "", description: "", entryPoints: [""], status: "" }],
+    tours: [{ title: "", description: "", steps: [{ file: "", explanation: "" }] }],
+    gotchas: [{ title: "", description: "", evidence: [""] }],
+    decisions: [{ title: "", context: "", decision: "", evidence: [""] }],
+    firstTasks: [{ title: "", description: "", files: [""] }],
+  };
+}
+
+/** Frase para colar na IA local depois do `init`. */
+export function aiPrompt(file = "onboarding.json"): string {
+  return `Leia o arquivo ${file} e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboard-kit validate" e corrija o que ele apontar.`;
+}

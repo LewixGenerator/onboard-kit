@@ -1,0 +1,373 @@
+{
+  "_instructions": {
+    "readme": "Você é a IA local deste projeto. Sua tarefa é preencher este arquivo analisando o código do repositório. O resultado será exibido em /onboarding para quem está chegando no projeto.",
+    "steps": [
+      "1. Leia este arquivo inteiro antes de começar, incluindo _instructions.sections.",
+      "2. Explore o repositório: package.json e lockfile, README e docs, arquivos de config (tsconfig, eslint, prettier, next.config, nest-cli.json, docker, CI), código-fonte, testes e .env.example.",
+      "3. Preencha cada seção seguindo _instructions.sections.<seção> e _instructions.framework. Os arrays vêm com um item modelo em branco: substitua-o por itens reais, quantos forem necessários. Se não houver nada real para a seção, deixe o array vazio ([]).",
+      "4. Preencha meta: status = \"filled\", generatedAt = data e hora atuais em ISO 8601, generatedBy = nome da ferramenta e do modelo, commit = saída de `git rev-parse HEAD` (vazio se não houver git).",
+      "5. Rode `npx onboard-kit validate` e corrija tudo o que ele apontar até passar sem erros."
+    ],
+    "rules": [
+      "Escreva todo o conteúdo no idioma de meta.language.",
+      "Nunca invente. Toda afirmação sobre stack, convenções, regras, decisões e armadilhas precisa de evidence com arquivos reais, no formato caminho/relativo ou caminho/relativo:linha. Se não encontrar evidência, não inclua o item.",
+      "Caminhos são relativos à raiz do repositório e usam '/'.",
+      "Nunca copie segredos: valores de .env, tokens, chaves de API, senhas ou URLs com credenciais. Em envVars descreva apenas o nome e a finalidade.",
+      "Mantenha o JSON válido. Não renomeie nem remova chaves e não apague _instructions: ele é usado nas próximas atualizações.",
+      "Escreva de forma curta, direta e humana, como um colega explicando o projeto: quem lê é uma pessoa no primeiro dia. O conteúdo vira slides, então prefira frases curtas a parágrafos longos.",
+      "Se meta.status já for \"filled\", você está ATUALIZANDO: use `git diff <meta.commit>..HEAD` para revisar apenas o que mudou, mantenha o restante e atualize meta.commit e meta.generatedAt."
+    ],
+    "framework": "Projeto Node.js. Identifique o ponto de entrada (main e scripts do package.json), o framework HTTP (Express, Fastify, Koa ou http nativo), a organização de rotas e middlewares, o acesso a dados, jobs/workers e scripts utilitários.",
+    "sections": {
+      "project": "name: nome do projeto. tagline: uma frase que resume o projeto. purpose: 2 a 4 frases sobre o problema que ele resolve e para quem. audience: quem usa o produto (usuários finais, não devs). status: fase do projeto (ex.: em produção, MVP, em migração). repoUrl: URL do repositório (git remote get-url origin, convertida para https), vazio se não houver.",
+      "business": "Explique o negócio para alguém que nunca ouviu falar do produto. model: como o produto gera valor ou receita (assinatura, comissão, venda, uso interno...). Baseie-se em planos, pagamentos, roles e docs do repositório; se não der para inferir a receita, descreva o valor gerado sem inventar. valueProposition: o que o produto resolve para quem usa, em 1 ou 2 frases. actors: os perfis que participam (tipos de usuário, roles, sistemas parceiros), com evidence de onde aparecem no código. flows: 1 a 3 jornadas principais (ex.: 'Do cadastro à primeira compra'), cada uma com 3 a 6 passos curtos e evidence.",
+      "gettingStarted": "prerequisites: o que precisa estar instalado (versão do Node, banco, Docker...). setup: passos em ordem para rodar localmente pela primeira vez. commands: scripts úteis do package.json com o comando exato e o que fazem. envVars: variáveis de ambiente (de .env.example, código ou docs) com nome, para que servem e se são obrigatórias. NUNCA inclua valores.",
+      "stack": "Uma entrada por tecnologia relevante (linguagem, framework, banco, ORM, auth, testes, lint, deploy, filas, libs centrais). category: ex. framework, database, orm, testing, styling, infra. version: do package.json/lockfile. why: para que é usada NESTE projeto. evidence: onde aparece (package.json, arquivo de config ou de uso).",
+      "architecture": "summary: como o código está organizado e como uma requisição/ação flui pelo sistema. diagram: diagrama Mermaid (graph TD ou flowchart) com os principais módulos e integrações externas, sem cercas ```. modules: pastas ou módulos principais com path e responsibility.",
+      "conventions": "Padrões de código que alguém novo precisa seguir: nomenclatura, estrutura de pastas, tratamento de erro, validação, padrões de componentes, testes, commits, lint/format. example: trecho curto real ou ilustrativo. evidence obrigatória.",
+      "domain": "glossary: termos do negócio que aparecem no código e nas telas, com definição em linguagem simples. businessRules: regras de negócio macro (ex.: quem pode fazer o quê, limites, cálculos, estados de um pedido), com evidence apontando onde a regra está implementada.",
+      "features": "Funcionalidades do produto do ponto de vista do usuário. entryPoints: arquivos onde a feature começa (página, controller, rota). status: ex. estável, beta, em desenvolvimento, descontinuada.",
+      "tours": "1 a 3 tours guiados pelo código, ex.: 'Como uma requisição é atendida', 'Ciclo de vida de um pedido'. Cada step aponta um arquivo (com linha quando ajudar) e explica o que olhar ali. Ordene os steps na sequência de leitura.",
+      "gotchas": "Armadilhas e cuidados: comportamentos não óbvios, partes frágeis, workarounds, TODOs/FIXMEs importantes, coisas que costumam quebrar. Só inclua o que tiver evidence.",
+      "decisions": "Decisões de arquitetura perceptíveis no código ou na documentação (ex.: por que tal ORM, monorepo, cache, autenticação). context: o problema. decision: o que foi escolhido. Não invente motivos: se o motivo não está documentado, descreva só a decisão.",
+      "firstTasks": "3 a 5 tarefas pequenas e seguras para alguém novo começar (ex.: um teste faltando, um TODO simples, uma melhoria de mensagem de erro), com os arquivos envolvidos."
+    }
+  },
+  "meta": {
+    "schemaVersion": "1",
+    "status": "filled",
+    "language": "pt-BR",
+    "framework": "node",
+    "generatedAt": "2026-11-12T02:06:00.028Z",
+    "generatedBy": "Claude Code (claude-opus-5-5)",
+    "commit": ""
+  },
+  "project": {
+    "name": "onboard-kit",
+    "tagline": "Onboarding de projetos gerado pela sua IA local e exibido em /onboarding.",
+    "purpose": "Pacote npm que cria um `onboarding.json` em branco com instruções para a IA local do desenvolvedor. A IA analisa o repositório e preenche o arquivo; o pacote valida o resultado e mostra uma apresentação do projeto em `/onboarding`, dentro do próprio app (Next, Nest ou Node).",
+    "audience": "Times de desenvolvimento que recebem pessoas novas e querem um panorama do projeto sem escrever a documentação à mão.",
+    "status": "MVP",
+    "repoUrl": ""
+  },
+  "business": {
+    "model": "Pacote open source e gratuito no npm. O valor está em reduzir o tempo até o primeiro PR de quem entra num time.",
+    "valueProposition": "Uma apresentação do projeto sempre atualizada, escrita pela IA que o time já usa, sem ninguém precisar manter documentação à mão.",
+    "actors": [
+      {
+        "name": "Dev novo no time",
+        "description": "Abre /onboarding no primeiro dia e percorre o tour.",
+        "evidence": [
+          "src/render/index.ts"
+        ]
+      },
+      {
+        "name": "Tech lead",
+        "description": "Roda o init, pede para a IA preencher e revisa o resultado no PR.",
+        "evidence": [
+          "src/cli/index.ts:160"
+        ]
+      },
+      {
+        "name": "IA local",
+        "description": "Lê as instruções do JSON, analisa o repositório e preenche os campos.",
+        "evidence": [
+          "src/template.ts:44"
+        ]
+      }
+    ],
+    "flows": [
+      {
+        "name": "Do zero ao onboarding publicado",
+        "steps": [
+          "`npx onboard-kit init`",
+          "IA preenche o JSON",
+          "`validate` aponta o que falta",
+          "Time revisa no PR",
+          "Dev novo abre /onboarding"
+        ],
+        "evidence": [
+          "src/cli/index.ts"
+        ]
+      }
+    ]
+  },
+  "gettingStarted": {
+    "prerequisites": [
+      "Node.js 18 ou mais novo"
+    ],
+    "setup": [
+      "`npm install`",
+      "`npm test` para compilar e rodar os testes"
+    ],
+    "commands": [
+      {
+        "name": "build",
+        "command": "npm run build",
+        "description": "Compila `src/` para `dist/` com o tsc."
+      },
+      {
+        "name": "test",
+        "command": "npm test",
+        "description": "Compila e roda os testes com `node --test`."
+      },
+      {
+        "name": "serve",
+        "command": "node dist/cli/index.js serve",
+        "description": "Mostra este próprio onboarding em http://localhost:4321."
+      }
+    ],
+    "envVars": [
+      {
+        "name": "NODE_ENV",
+        "description": "Em `production` as rotas /onboarding ficam desligadas por padrão.",
+        "required": false
+      },
+      {
+        "name": "NO_COLOR",
+        "description": "Desliga as cores do CLI.",
+        "required": false
+      }
+    ]
+  },
+  "stack": [
+    {
+      "name": "TypeScript",
+      "category": "linguagem",
+      "version": "5.6",
+      "why": "Todo o código-fonte; compilado para CommonJS para funcionar com Nest e Next.",
+      "evidence": [
+        "package.json:69",
+        "tsconfig.json"
+      ]
+    },
+    {
+      "name": "Node.js (sem dependências)",
+      "category": "runtime",
+      "version": ">=18",
+      "why": "O pacote não tem dependências em runtime: só módulos nativos (fs, http, child_process).",
+      "evidence": [
+        "package.json"
+      ]
+    },
+    {
+      "name": "NestJS",
+      "category": "framework",
+      "version": ">=9 (peer opcional)",
+      "why": "Usado só pelo adapter `onboard-kit/nest`.",
+      "evidence": [
+        "package.json:57",
+        "src/adapters/nest.ts:18"
+      ]
+    },
+    {
+      "name": "Next.js",
+      "category": "framework",
+      "version": "App Router e Pages Router",
+      "why": "O adapter devolve um `Response` padrão, então não importa nada do Next.",
+      "evidence": [
+        "src/adapters/next.ts:16"
+      ]
+    },
+    {
+      "name": "Mermaid",
+      "category": "visualização",
+      "version": "11.4.1 (CDN)",
+      "why": "Desenha o diagrama de arquitetura na página.",
+      "evidence": [
+        "src/render/assets.ts:1"
+      ]
+    },
+    {
+      "name": "node:test",
+      "category": "testes",
+      "version": "nativo",
+      "why": "Testes sem dependências extras.",
+      "evidence": [
+        "test/core.test.js:1"
+      ]
+    }
+  ],
+  "architecture": {
+    "summary": "O núcleo lê o `onboarding.json` a cada requisição (`load.ts`) e gera um HTML autocontido (`src/render/`). Os adapters de Node, Next e Nest são camadas finas sobre `renderOnboardingPage`. O CLI cria o template, liga a rota no projeto, valida o JSON e serve a página localmente.",
+    "diagram": "graph TD\n  CLI[CLI: init / validate / serve] --> T[template.ts]\n  CLI --> V[validate.ts]\n  AI[IA local] -->|preenche| J[(onboarding.json)]\n  T -->|cria| J\n  V -->|lê| J\n  L[load.ts] -->|lê| J\n  L --> R[render.ts]\n  R --> N[adapter Node]\n  R --> X[adapter Next]\n  R --> S[adapter Nest]",
+    "modules": [
+      {
+        "name": "Template",
+        "path": "src/template.ts",
+        "responsibility": "JSON em branco e as instruções para a IA, com dicas por framework."
+      },
+      {
+        "name": "Validação",
+        "path": "src/validate.ts",
+        "responsibility": "Campos obrigatórios, itens-modelo esquecidos, evidências que existem e busca de segredos."
+      },
+      {
+        "name": "Renderização",
+        "path": "src/render",
+        "responsibility": "Monta o deck de slides: textos, capítulos, estilo e interação."
+      },
+      {
+        "name": "Adapters",
+        "path": "src/adapters",
+        "responsibility": "Rota /onboarding para Node/Express, Next e Nest."
+      },
+      {
+        "name": "CLI",
+        "path": "src/cli/index.ts",
+        "responsibility": "Comandos init, prompt, validate e serve."
+      }
+    ]
+  },
+  "conventions": [
+    {
+      "title": "Chaves com _ são da IA",
+      "description": "Qualquer chave que começa com `_` é ignorada pela validação e pela página.",
+      "example": "",
+      "evidence": [
+        "src/load.ts:47",
+        "src/validate.ts:97"
+      ]
+    },
+    {
+      "title": "Desligado em produção por padrão",
+      "description": "Toda rota passa por `resolveEnabled`; só liga em produção com `enabled: true`.",
+      "example": "createOnboardingRoute({ enabled: true })",
+      "evidence": [
+        "src/load.ts:11",
+        "src/adapters/node.ts:20"
+      ]
+    },
+    {
+      "title": "Todo texto passa por escapeHtml",
+      "description": "O conteúdo vem de uma IA, então nada entra no HTML sem escape.",
+      "example": "",
+      "evidence": [
+        "src/render/html.ts"
+      ]
+    }
+  ],
+  "domain": {
+    "glossary": [
+      {
+        "term": "Evidência",
+        "definition": "Referência `arquivo:linha` que comprova uma afirmação do onboarding."
+      },
+      {
+        "term": "Item-modelo",
+        "definition": "Item em branco que o template coloca em cada lista para mostrar o formato à IA."
+      },
+      {
+        "term": "Adapter",
+        "definition": "Integração que serve a página dentro de um framework."
+      },
+      {
+        "term": "Deck",
+        "definition": "A sequência de slides montada a partir do JSON."
+      },
+      {
+        "term": "Capítulo",
+        "definition": "Grupo de slides sobre um assunto, com cor própria na barra de progresso."
+      }
+    ],
+    "businessRules": [
+      {
+        "title": "Arquivo só é válido depois de preenchido",
+        "description": "`meta.status` precisa ser `filled` e nenhuma lista pode manter o item-modelo em branco.",
+        "evidence": [
+          "src/validate.ts:109"
+        ]
+      },
+      {
+        "title": "Convenções, regras e armadilhas exigem evidência",
+        "description": "Sem evidência é erro; em stack e decisões é só aviso.",
+        "evidence": [
+          "src/validate.ts:21"
+        ]
+      }
+    ]
+  },
+  "features": [
+    {
+      "name": "init",
+      "description": "Detecta o framework, cria o JSON em branco e liga a rota /onboarding.",
+      "entryPoints": [
+        "src/cli/index.ts:160"
+      ],
+      "status": "estável"
+    },
+    {
+      "name": "validate",
+      "description": "Aponta o que a IA deixou faltando ou inventou.",
+      "entryPoints": [
+        "src/cli/index.ts:205"
+      ],
+      "status": "estável"
+    },
+    {
+      "name": "Página /onboarding",
+      "description": "Apresentação do projeto com navegação, busca, diagrama e links para o código.",
+      "entryPoints": [
+        "src/render/index.ts"
+      ],
+      "status": "estável"
+    }
+  ],
+  "tours": [
+    {
+      "title": "Do JSON à página",
+      "description": "O caminho de uma requisição a /onboarding.",
+      "steps": [
+        {
+          "file": "src/adapters/next.ts:16",
+          "explanation": "O adapter confere se a rota está ligada."
+        },
+        {
+          "file": "src/index.ts:17",
+          "explanation": "Lê o arquivo e escolhe a página: pendente, ausente, erro ou completa."
+        },
+        {
+          "file": "src/render/index.ts",
+          "explanation": "Numera os capítulos que têm conteúdo e monta o deck com boas-vindas e final."
+        }
+      ]
+    }
+  ],
+  "gotchas": [
+    {
+      "title": "Pacote em CommonJS",
+      "description": "Compilado como CommonJS para que apps Nest consigam dar `require`. Os subpaths dependem de `exports` e `typesVersions` no package.json.",
+      "evidence": [
+        "package.json:11",
+        "package.json:30"
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "title": "Sem dependências em runtime",
+      "context": "O pacote roda dentro do projeto de outras pessoas.",
+      "decision": "Validação e HTML feitos à mão, sem Zod nem React.",
+      "evidence": [
+        "package.json"
+      ]
+    }
+  ],
+  "firstTasks": [
+    {
+      "title": "Comando `check` para a CI",
+      "description": "Falhar quando `meta.commit` estiver muito atrás do HEAD.",
+      "files": [
+        "src/cli/index.ts",
+        "src/validate.ts:109"
+      ]
+    },
+    {
+      "title": "Instruções em inglês",
+      "description": "Escolher o idioma das instruções a partir de `--lang`.",
+      "files": [
+        "src/template.ts:44"
+      ]
+    }
+  ]
+}
