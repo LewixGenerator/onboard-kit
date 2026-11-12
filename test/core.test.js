@@ -42,10 +42,22 @@ function filledData() {
   data.gotchas = [];
   data.decisions = [];
   data.firstTasks = [{ title: "Adicionar teste", description: "Cobrir o frete", files: ["src/index.js"] }];
+  data.architecture.style = "Monolito modular";
+  data.architecture.patterns = [{ name: "Services", description: "Regra no service", evidence: ["src/index.js"] }];
+  data.workflow = {
+    branching: { model: "GitHub Flow", mainBranch: "main", description: "Branches curtas a partir da main.", branches: [{ pattern: "feat/<ticket>", purpose: "Funcionalidades" }], evidence: [] },
+    commits: { convention: "Conventional Commits", format: "tipo(escopo): descrição", examples: ["feat(checkout): aceita pix"], enforcedBy: "commitlint", evidence: [] },
+    pullRequests: { process: "1 aprovação e squash", checklist: ["Testes passando"], evidence: [] },
+    release: { process: "Deploy no merge", environments: [{ name: "Produção", trigger: "merge na main", description: "" }], evidence: [] },
+  };
+  data.quality = { testing: { approach: "Unitários com node:test", location: "test/", command: "npm test", evidence: [] }, checks: [{ name: "CI", when: "PR", description: "Roda os testes", evidence: [] }] };
+  data.docs = [{ title: "README", file: "src/index.js", why: "Visão geral" }];
+  data.codeNotes = [{ title: "Não mexer no cálculo", description: "Usado pelo financeiro", file: "src/index.js:1", kind: "IMPORTANT" }];
+  data.todos = [{ title: "Frete internacional", description: "Ainda não calcula", file: "src/index.js:2", kind: "TODO", impact: "Afeta pedidos de fora" }];
   return data;
 }
 
-const PROJECT_FILES = { "package.json": "{}", "src/index.js": "line1\nline2\nline3\n" };
+const PROJECT_FILES = { "package.json": "{}", "src/index.js": "line1\n// TODO: frete internacional\nline3\n" };
 
 test("template em branco começa pendente e com instruções", () => {
   const data = kit.createTemplate({ framework: "nest" });
@@ -106,7 +118,7 @@ test("render mostra o prompt para copiar e o progresso quando pendente", () => {
   assert.match(html, /ainda não foi gerado/);
   assert.match(html, /data-ok-state="pending"/);
   assert.match(html, /class="cta copy-cta" data-copy="Leia o arquivo onboarding\.json[^"]*_instructions/);
-  assert.match(html, /1 de 13 seções preenchidas/);
+  assert.match(html, /1 de 17 seções preenchidas/);
   assert.match(html, /<li data-key="project" class="is-done">/);
 });
 
@@ -185,7 +197,7 @@ test("render monta o deck em ordem narrativa, com links e HTML escapado", () => 
 
   const chapters = [...html.matchAll(/<section class="slide"[^>]*data-chapter="([a-z]+)"/g)].map((m) => m[1]);
   const order = [...new Set(chapters)];
-  assert.deepEqual(order, ["welcome", "why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "tours", "mission", "finale"]);
+  assert.deepEqual(order, ["welcome", "why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "quality", "docs", "tours", "todos", "mission", "cheatsheet", "finale"]);
   assert.ok(!chapters.includes("gotchas"), "capítulo vazio não aparece");
 
   // tour: 1 slide de abertura + 1 por parada
@@ -197,6 +209,61 @@ test("render monta o deck em ordem narrativa, com links e HTML escapado", () => 
   assert.match(html, /mermaid@11/);
   assert.match(html, /data-kind="quiz"/);
   assert.match(html, /Que bom ter você/);
+});
+
+test("render mostra Git, qualidade, docs, TODOs ao vivo e a cola", () => {
+  const root = tmpProject({ ...PROJECT_FILES, "src/legacy.js": "// FIXME: remover\n// TODO: x\n/** @deprecated use novo() */\n" });
+  const html = kit.renderOnboarding(filledData(), { root });
+  assert.match(html, /class="branch-map/);
+  assert.match(html, /git commit -m "feat\(checkout\): aceita pix"/);
+  assert.match(html, /Garantido por commitlint/);
+  assert.match(html, /class="timeline/);
+  assert.match(html, /<span class="kind kind-important">IMPORTANT<\/span>/);
+  // varredura do código: 2 TODOs e 1 FIXME
+  assert.match(html, /<strong data-count="3">3<\/strong>/);
+  assert.match(html, /Afeta pedidos de fora/);
+  assert.match(html, /data-kind="cheatsheet"/);
+  assert.match(html, /<code>tipo\(escopo\): descrição<\/code>/);
+  // decisões passam a fechar o capítulo de arquitetura
+  assert.match(html, /O desenho do sistema/);
+});
+
+test("scanMarkers e collectFacts leem marcadores, git e sinais de arquitetura", () => {
+  const { scanMarkers, collectFacts } = require("../dist/facts.js");
+  const root = tmpProject({
+    "package.json": JSON.stringify({ devDependencies: { vitest: "1" }, workspaces: ["apps/*"] }),
+    "apps/api/src/a.ts": "const todo = 1; // TODO(lewi): validar CPF\n// NOTE: valores em centavos\n",
+    "apps/api/src/a.test.ts": "",
+    "apps/web/Dockerfile": "",
+    "apps/api/Dockerfile": "",
+    ".github/workflows/ci.yml": "",
+    "commitlint.config.js": "",
+  });
+  const scan = scanMarkers(root);
+  assert.equal(scan.counts.TODO, 1);
+  assert.equal(scan.counts.NOTE, 1);
+  assert.deepEqual(scan.items[0], { kind: "TODO", text: "validar CPF", file: "apps/api/src/a.ts:1" });
+  assert.equal(scan.byFolder.apps, 1);
+
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  execFileSync("git", ["add", "."], { cwd: root });
+  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "feat(api): primeira versão"], { cwd: root });
+  const facts = collectFacts(root);
+  assert.equal(facts.git.conventionalRatio, 1);
+  assert.deepEqual(facts.files.ci, [".github/workflows/ci.yml"]);
+  assert.deepEqual(facts.files.commitRules, ["commitlint.config.js"]);
+  assert.deepEqual(facts.tests.frameworks, ["vitest"]);
+  assert.equal(facts.tests.testFiles, 1);
+  assert.ok(facts.architectureSignals.some((s) => s.startsWith("monorepo")));
+  assert.ok(facts.architectureSignals.some((s) => s.includes("2 Dockerfiles")));
+  assert.match(cli.formatFacts(facts), /Conventional Commits: 100%/);
+});
+
+test("validate avisa quando uma seção passa do limite de itens", () => {
+  const data = filledData();
+  data.todos = Array.from({ length: 10 }, (_, i) => ({ title: `T${i}`, description: "", file: "src/index.js", kind: "TODO", impact: "" }));
+  const issues = kit.validateOnboarding(data, { root: tmpProject(PROJECT_FILES) });
+  assert.ok(issues.some((i) => i.level === "warning" && i.path === "todos" && /no máximo 8/.test(i.message)));
 });
 
 test("render pagina listas longas em vários slides", () => {

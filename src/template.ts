@@ -21,7 +21,7 @@ const SECTION_INSTRUCTIONS = {
   stack:
     "Uma entrada por tecnologia relevante (linguagem, framework, banco, ORM, auth, testes, lint, deploy, filas, libs centrais). category: ex. framework, database, orm, testing, styling, infra. version: do package.json/lockfile. why: para que é usada NESTE projeto. evidence: onde aparece (package.json, arquivo de config ou de uso).",
   architecture:
-    "summary: como o código está organizado e como uma requisição/ação flui pelo sistema. diagram: diagrama Mermaid (graph TD ou flowchart) com os principais módulos e integrações externas, sem cercas ```. modules: pastas ou módulos principais com path e responsibility.",
+    "style: o estilo arquitetural em uma linha (ex.: 'Monolito modular em camadas', 'Microsserviços que conversam por fila', 'Serverless', 'Arquitetura hexagonal'); use os sinais de `facts` (monorepo, Dockerfiles, pastas de camadas, libs de mensageria) e diga em que se baseou. patterns: até 5 padrões que dão forma ao código e que a pessoa vai encontrar logo (Repository, injeção de dependência, CQRS, eventos de domínio, Server Actions...), cada um com description curta de como aparece aqui e evidence. summary: como o código está organizado e como uma requisição/ação flui pelo sistema. diagram: diagrama Mermaid (graph TD ou flowchart) com os principais módulos e integrações externas, sem cercas ```. modules: pastas ou módulos principais com path e responsibility.",
   conventions:
     "Padrões de código que alguém novo precisa seguir: nomenclatura, estrutura de pastas, tratamento de erro, validação, padrões de componentes, testes, commits, lint/format. example: trecho curto real ou ilustrativo. evidence obrigatória.",
   domain:
@@ -31,7 +31,17 @@ const SECTION_INSTRUCTIONS = {
   tours:
     "1 a 3 tours guiados pelo código, ex.: 'Como uma requisição é atendida', 'Ciclo de vida de um pedido'. Cada step aponta um arquivo (com linha quando ajudar) e explica o que olhar ali. Ordene os steps na sequência de leitura.",
   gotchas:
-    "Armadilhas e cuidados: comportamentos não óbvios, partes frágeis, workarounds, TODOs/FIXMEs importantes, coisas que costumam quebrar. Só inclua o que tiver evidence.",
+    "Até 6 armadilhas: comportamentos não óbvios, partes frágeis, workarounds, coisas que costumam quebrar. TODOs vão em `todos`, não aqui. Só inclua o que tiver evidence.",
+  workflow:
+    "Como o código chega em produção, a partir dos fatos de `npx onboarding-kit facts` (branches, commits recentes, CI, hooks) e de CONTRIBUTING/README. branching: model (GitHub Flow, GitFlow, trunk-based...; só afirme o modelo se o histórico ou a doc mostrarem), mainBranch, description em 1 ou 2 frases, branches: até 6 padrões de nome (ex.: 'feature/<ticket>-<descricao>') com purpose. commits: convention (ex.: Conventional Commits) só se a maioria dos commits seguir ou houver commitlint; format: o molde da mensagem; examples: 2 a 4 mensagens REAIS do git log; enforcedBy: commitlint/husky/etc. ou vazio. pullRequests: process (quem revisa, quantas aprovações, squash ou merge, CODEOWNERS) e checklist: até 5 itens do template de PR. release: process (como vira versão/deploy: tags, semantic-release, changesets, deploy automático no merge...) e environments: ambientes com name, trigger (ex.: 'merge na main') e description. Deixe vazio o que não der para comprovar.",
+  quality:
+    "testing.approach: como o time testa, em 1 ou 2 frases (ex.: 'Testes unitários ao lado do código com Vitest; e2e com Playwright nos fluxos de compra'). Só diga TDD se estiver documentado ou se o histórico mostrar testes chegando junto/antes do código. Use as contagens de `facts` (arquivos de teste x código) para dar a real, sem julgamento. location: onde ficam os testes. command: comando exato para rodar. checks: até 6 verificações automáticas (lint, typecheck, testes na CI, hooks de pre-commit, análise de segurança, preview deploy) com when (pre-commit, PR, merge, deploy) e evidence.",
+  docs:
+    "Até 6 documentos que um dev novo deve ler na primeira semana (README, CONTRIBUTING, ADRs, docs/, guias de API, runbooks), do mais importante para o menos. file: caminho. why: o que a pessoa aprende ali, em 1 frase. Não liste documentos vazios ou genéricos.",
+  codeNotes:
+    "Até 6 observações deixadas em comentários no código que alguém novo PRECISA conhecer: avisos (WARNING/IMPORTANT/NOTE), APIs @deprecated que não devem ser usadas, regras explicadas em comentário. Use a lista de marcadores de `facts`. title curto, description em linguagem simples, file com linha, kind (NOTE, IMPORTANT, WARNING, DEPRECATED).",
+  todos:
+    "Até 8 TODOs/FIXMEs/HACKs que importam para quem está chegando (dívidas técnicas que afetam regra de negócio, partes provisórias, coisas que bloqueiam upgrades), escolhidos da lista de `facts`. Ignore TODOs triviais. title curto, description do que falta, file com linha, kind (TODO, FIXME, HACK, XXX, BUG), impact: por que isso importa para a pessoa nova. A apresentação já mostra a contagem total sozinha.",
   decisions:
     "Decisões de arquitetura perceptíveis no código ou na documentação (ex.: por que tal ORM, monorepo, cache, autenticação). context: o problema. decision: o que foi escolhido. Não invente motivos: se o motivo não está documentado, descreva só a decisão.",
   brand:
@@ -52,7 +62,7 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
         "Você é a IA local deste projeto. Sua tarefa é preencher este arquivo analisando o código do repositório. O resultado será exibido em /onboarding para quem está chegando no projeto.",
       steps: [
         "1. Leia este arquivo inteiro antes de começar, incluindo _instructions.sections.",
-        "2. Explore o repositório: package.json e lockfile, README e docs, arquivos de config (tsconfig, eslint, prettier, next.config, nest-cli.json, docker, CI), código-fonte, testes e .env.example.",
+        "2. Rode `npx onboarding-kit facts` para ver os fatos coletados do git e do código (branches, padrão dos commits, CI, hooks, testes, sinais de arquitetura, TODOs e observações em comentários). Depois explore o repositório: package.json e lockfile, README e docs, arquivos de config (tsconfig, eslint, prettier, next.config, nest-cli.json, docker, CI), código-fonte, testes e .env.example.",
         "3. Preencha cada seção seguindo _instructions.sections.<seção> e _instructions.framework. Os arrays vêm com um item modelo em branco: substitua-o por itens reais, quantos forem necessários. Se não houver nada real para a seção, deixe o array vazio ([]).",
         "4. Preencha meta: status = \"filled\", generatedAt = data e hora atuais em ISO 8601, generatedBy = nome da ferramenta e do modelo, commit = saída de `git rev-parse HEAD` (vazio se não houver git).",
         "5. Rode `npx onboarding-kit validate` e corrija tudo o que ele apontar até passar sem erros.",
@@ -63,7 +73,8 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
         "Caminhos são relativos à raiz do repositório e usam '/'.",
         "Nunca copie segredos: valores de .env, tokens, chaves de API, senhas ou URLs com credenciais. Em envVars descreva apenas o nome e a finalidade.",
         "Mantenha o JSON válido. Não renomeie nem remova chaves e não apague _instructions: ele é usado nas próximas atualizações.",
-        "Escreva de forma curta, direta e humana, como um colega explicando o projeto: quem lê é uma pessoa no primeiro dia. O conteúdo vira slides, então prefira frases curtas a parágrafos longos.",
+        "Escreva de forma curta, direta e humana, como um colega explicando o projeto: quem lê é uma pessoa recém-contratada que precisa entender a regra de negócio e os padrões do time. O conteúdo vira slides, então prefira frases curtas a parágrafos longos.",
+        "Menos é mais: respeite os limites de itens de cada seção e escolha o que a pessoa precisa na primeira semana. Um item ótimo vale mais que cinco medianos.",
         "Se meta.status já for \"filled\", você está ATUALIZANDO: use `git diff <meta.commit>..HEAD` para revisar apenas o que mudou, mantenha o restante e atualize meta.commit e meta.generatedAt.",
       ],
       framework: FRAMEWORK_HINTS[framework],
@@ -92,7 +103,13 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
       envVars: [{ name: "", description: "", required: false }],
     },
     stack: [{ name: "", category: "", version: "", why: "", evidence: [""] }],
-    architecture: { summary: "", diagram: "", modules: [{ name: "", path: "", responsibility: "" }] },
+    architecture: {
+      style: "",
+      patterns: [{ name: "", description: "", evidence: [""] }],
+      summary: "",
+      diagram: "",
+      modules: [{ name: "", path: "", responsibility: "" }],
+    },
     conventions: [{ title: "", description: "", example: "", evidence: [""] }],
     domain: {
       glossary: [{ term: "", definition: "" }],
@@ -103,6 +120,19 @@ export function createTemplate({ framework, language = "pt-BR" }: TemplateOption
     gotchas: [{ title: "", description: "", evidence: [""] }],
     decisions: [{ title: "", context: "", decision: "", evidence: [""] }],
     firstTasks: [{ title: "", description: "", files: [""] }],
+    workflow: {
+      branching: { model: "", mainBranch: "", description: "", branches: [{ pattern: "", purpose: "" }], evidence: [""] },
+      commits: { convention: "", format: "", examples: [""], enforcedBy: "", evidence: [""] },
+      pullRequests: { process: "", checklist: [""], evidence: [""] },
+      release: { process: "", environments: [{ name: "", trigger: "", description: "" }], evidence: [""] },
+    },
+    quality: {
+      testing: { approach: "", location: "", command: "", evidence: [""] },
+      checks: [{ name: "", when: "", description: "", evidence: [""] }],
+    },
+    docs: [{ title: "", file: "", why: "" }],
+    codeNotes: [{ title: "", description: "", file: "", kind: "" }],
+    todos: [{ title: "", description: "", file: "", kind: "", impact: "" }],
     brand: { primaryColor: "", palette: [""], logo: "", favicon: "", evidence: [""] },
   };
 }

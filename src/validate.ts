@@ -34,7 +34,25 @@ const ARRAY_SECTIONS: { path: string; key: string; evidence?: "error" | "warning
   { path: "firstTasks", key: "title" },
   { path: "gettingStarted.commands", key: "command" },
   { path: "gettingStarted.envVars", key: "name" },
+  { path: "architecture.patterns", key: "name", evidence: "warning", optional: true },
+  { path: "workflow.branching.branches", key: "pattern", optional: true },
+  { path: "workflow.release.environments", key: "name", optional: true },
+  { path: "quality.checks", key: "name", evidence: "warning", optional: true },
+  { path: "docs", key: "file", optional: true },
+  { path: "codeNotes", key: "file", optional: true },
+  { path: "todos", key: "file", optional: true },
 ];
+
+/** Limites de itens: acima disso a apresentação fica pesada para quem está chegando. */
+const MAX_ITEMS: Record<string, number> = {
+  "architecture.patterns": 5,
+  "workflow.branching.branches": 6,
+  "quality.checks": 6,
+  docs: 6,
+  codeNotes: 6,
+  todos: 8,
+  gotchas: 6,
+};
 
 const EVIDENCE_KEYS = new Set(["evidence", "entryPoints", "files"]);
 
@@ -216,6 +234,13 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
       }
     });
     if (section.min && real < section.min) err(section.path, `precisa de pelo menos ${section.min} item`);
+    const max = MAX_ITEMS[section.path];
+    if (max && real > max) warn(section.path, `${real} itens: mantenha no máximo ${max}, só os que importam para quem está chegando`);
+  }
+
+  const examples = get(data, "workflow.commits.examples");
+  if (Array.isArray(examples) && examples.length > 1 && examples.some(isBlank)) {
+    err("workflow.commits.examples", "tem exemplos em branco: use mensagens reais do git log ou deixe a lista vazia");
   }
 
   for (const key of ["prerequisites", "setup"]) {

@@ -1,4 +1,5 @@
 import { isAchromatic, packageName, resolveBrand, toHex, type ResolvedBrand } from "../brand";
+import { cachedMarkers } from "../facts";
 import { isBlank } from "../load";
 import { aiPrompt } from "../template";
 import type { OnboardingData } from "../types";
@@ -108,7 +109,7 @@ function waiting(t: Copy): string {
 }
 
 /** Seções do JSON acompanhadas na tela de espera enquanto a IA preenche. */
-const PROGRESS_SECTIONS = ["project", "business", "features", "domain", "stack", "architecture", "gettingStarted", "conventions", "tours", "gotchas", "decisions", "firstTasks", "brand"] as const;
+const PROGRESS_SECTIONS = ["project", "business", "features", "domain", "stack", "architecture", "gettingStarted", "conventions", "tours", "gotchas", "decisions", "firstTasks", "workflow", "quality", "docs", "todos", "brand"] as const;
 
 function progressBlock(data: OnboardingData, t: Copy): string {
   const items = PROGRESS_SECTIONS.map((key) => ({ key, done: !isBlank((data as unknown as Record<string, unknown>)[key]) }));
@@ -213,9 +214,10 @@ export function renderOnboarding(data: OnboardingData, options: RenderOptions = 
 
   // 1. capítulos do meio, numerados só quando têm conteúdo
   const middle: { id: ChapterId; slides: Slide[] }[] = [];
+  const markers = options.root ? cachedMarkers(options.root) : undefined;
   let num = 1;
   for (const [id, build] of CHAPTERS) {
-    const slides = build({ data, t, num });
+    const slides = build({ data, t, num, markers });
     if (slides.length) {
       middle.push({ id, slides });
       num++;

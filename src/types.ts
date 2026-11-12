@@ -51,7 +51,17 @@ export interface ArchitectureModule {
   responsibility: string;
 }
 
+export interface ArchitecturePattern {
+  name: string;
+  description: string;
+  evidence: Evidence[];
+}
+
 export interface Architecture {
+  /** Estilo em uma linha: monolito modular, microsserviços, serverless, hexagonal, MVC... */
+  style?: string;
+  /** Padrões de projeto que dão forma ao código (Repository, CQRS, injeção de dependência...). */
+  patterns?: ArchitecturePattern[];
   summary: string;
   /** Diagrama em sintaxe Mermaid (sem as cercas ```). */
   diagram: string;
@@ -134,6 +144,82 @@ export interface FirstTask {
   files: Evidence[];
 }
 
+export interface Workflow {
+  branching: {
+    /** Ex.: GitHub Flow, GitFlow, trunk-based. */
+    model: string;
+    mainBranch: string;
+    description: string;
+    branches: { pattern: string; purpose: string }[];
+    evidence: Evidence[];
+  };
+  commits: {
+    /** Ex.: Conventional Commits. */
+    convention: string;
+    /** Ex.: "feat(escopo): descrição no imperativo". */
+    format: string;
+    /** Mensagens reais do histórico que seguem o padrão. */
+    examples: string[];
+    /** O que garante o padrão (commitlint, husky...), vazio se for só combinado. */
+    enforcedBy: string;
+    evidence: Evidence[];
+  };
+  pullRequests: {
+    process: string;
+    checklist: string[];
+    evidence: Evidence[];
+  };
+  release: {
+    process: string;
+    environments: { name: string; trigger: string; description: string }[];
+    evidence: Evidence[];
+  };
+}
+
+export interface QualityCheck {
+  name: string;
+  /** Quando roda: pre-commit, push, PR, deploy... */
+  when: string;
+  description: string;
+  evidence: Evidence[];
+}
+
+export interface Quality {
+  testing: {
+    /** Como o time testa: TDD, testes junto do código, pirâmide... só o que der para comprovar. */
+    approach: string;
+    location: string;
+    command: string;
+    evidence: Evidence[];
+  };
+  checks: QualityCheck[];
+}
+
+export interface DocLink {
+  title: string;
+  file: Evidence;
+  /** Por que um dev novo deve ler. */
+  why: string;
+}
+
+export interface CodeNote {
+  title: string;
+  description: string;
+  file: Evidence;
+  /** NOTE, IMPORTANT, WARNING, DEPRECATED... */
+  kind: string;
+}
+
+export interface TodoItem {
+  title: string;
+  description: string;
+  file: Evidence;
+  /** TODO, FIXME, HACK, XXX, BUG. */
+  kind: string;
+  /** Por que importa para quem está chegando (ex.: afeta pagamentos, bloqueia upgrade). */
+  impact: string;
+}
+
 export interface BrandInfo {
   /** Cor principal da marca em hex (#RRGGBB). */
   primaryColor: string;
@@ -166,6 +252,15 @@ export interface OnboardingData {
   gotchas: Gotcha[];
   decisions: Decision[];
   firstTasks: FirstTask[];
+  /** Git, commits, PRs e deploy. Opcional em arquivos antigos. */
+  workflow?: Workflow;
+  quality?: Quality;
+  /** Documentos que valem a leitura na primeira semana. */
+  docs?: DocLink[];
+  /** Observações importantes deixadas em comentários no código. */
+  codeNotes?: CodeNote[];
+  /** TODOs/FIXMEs relevantes, escolhidos pela IA. A contagem completa vem da varredura do código. */
+  todos?: TodoItem[];
   /** Cores e logo do projeto, usados para dar a cara da marca à apresentação. Opcional. */
   brand?: BrandInfo;
 }

@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, join, relative } from "node:path";
 import { createOnboardingHandler } from "../adapters/node";
+import { collectFacts, NOTE_KINDS, TODO_KINDS, type RepoFacts } from "../facts";
 import { DEFAULT_FILE, loadOnboarding, resolveFile } from "../load";
 import { aiPrompt, createTemplate } from "../template";
 import type { Framework } from "../types";
@@ -26,6 +27,7 @@ ${c.bold("onboarding-kit")} — onboarding do projeto gerado pela sua IA local
 ${c.bold("Uso")}
   npx onboarding-kit init       Cria o onboarding.json em branco e a rota /onboarding
   npx onboarding-kit prompt     Mostra o texto para enviar à sua IA
+  npx onboarding-kit facts      Fatos do git e do código para a IA (branches, commits, CI, testes, TODOs)
   npx onboarding-kit validate   Confere o JSON preenchido (campos, evidências, segredos)
   npx onboarding-kit serve      Abre a apresentação em http://localhost:4321
 
@@ -36,6 +38,7 @@ ${c.bold("Opções")}
   --no-route                 Não cria/edita a rota no projeto (init)
   --force                    Sobrescreve o onboarding.json existente (init)
   --port <porta>             Porta do serve (padrão: 4321)
+  --json                     Saída em JSON (facts)
 `;
 
 interface Args {
@@ -246,6 +249,60 @@ function cmdServe(flags: Args["flags"]): Promise<number> {
   });
 }
 
+export function formatFacts(f: RepoFacts): string {
+  const out: string[] = [];
+  const section = (title: string) => out.push("", c.bold(`## ${title}`));
+  const list = (items: string[]) => items.forEach((i) => out.push(`  - ${i}`));
+  const counts = (obj: Record<string, number>) =>
+    Object.entries(obj)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k} ${v}`)
+      .join(", ");
+
+  section("Git");
+  if (!f.git) out.push("  (não é um repositório git)");
+  else {
+    const g = f.git;
+    out.push(`  branch atual: ${g.currentBranch ?? "?"} · branch padrão: ${g.defaultBranch ?? "(sem origin/HEAD)"}`);
+    out.push(`  branches (${g.branches.length}): ${g.branches.join(", ") || "-"}`);
+    if (Object.keys(g.branchPrefixes).length) out.push(`  prefixos: ${counts(g.branchPrefixes)}`);
+    out.push(`  commits recentes no formato Conventional Commits: ${Math.round(g.conventionalRatio * 100)}%${Object.keys(g.commitTypes).length ? ` (${counts(g.commitTypes)})` : ""}`);
+    out.push(`  merge commits nos últimos 300: ${g.mergeCommits}${g.mergeCommits === 0 && g.recentCommits.length >= 20 ? " (indica squash/rebase)" : ""}`);
+    if (g.tags.length) out.push(`  tags recentes: ${g.tags.join(", ")}`);
+    out.push("  últimos commits:");
+    g.recentCommits.forEach((m) => out.push(`    ${c.dim("•")} ${m}`));
+  }
+
+  section("Arquivos de processo");
+  const labels: Record<string, string> = { ci: "CI/CD", hooks: "Git hooks", commitRules: "Regras de commit/release", pullRequests: "PRs e donos de código", docs: "Documentação", lint: "Lint e formatação", containers: "Containers e infra", monorepo: "Monorepo" };
+  const groups = Object.entries(f.files);
+  if (!groups.length) out.push("  (nenhum encontrado)");
+  for (const [key, files] of groups) out.push(`  ${labels[key] ?? key}: ${files.join(", ")}`);
+
+  section("Testes");
+  const t = f.tests;
+  out.push(`  ${t.testFiles} arquivos de teste para ${t.sourceFiles} de código${t.frameworks.length ? ` · ${t.frameworks.join(", ")}` : ""}`);
+  out.push(`  ${t.colocated} ao lado do código, ${t.inTestFolders} em pastas de teste`);
+
+  section("Sinais de arquitetura");
+  list(f.architectureSignals.length ? f.architectureSignals : ["(nenhum sinal forte: provavelmente um app único)"]);
+
+  section("Marcadores no código");
+  const m = f.markers;
+  out.push(`  ${m.scannedFiles} arquivos lidos · ${counts(m.counts) || "nenhum marcador"}`);
+  if (Object.keys(m.byFolder).length) out.push(`  TODOs por pasta: ${counts(m.byFolder)}`);
+  const show = (kinds: readonly string[], title: string) => {
+    const items = m.items.filter((i) => kinds.includes(i.kind));
+    if (!items.length) return;
+    out.push(`  ${title}:`);
+    items.slice(0, 60).forEach((i) => out.push(`    ${c.dim("•")} [${i.kind}] ${i.file} ${i.text}`));
+    if (items.length > 60) out.push(`    … e mais ${items.length - 60}`);
+  };
+  show(TODO_KINDS, "TODO/FIXME/HACK");
+  show(NOTE_KINDS, "Observações (NOTE/IMPORTANT/WARNING/@deprecated)");
+  return out.join("\n").trimStart();
+}
+
 async function main(): Promise<number> {
   const { command, flags } = parseArgs(process.argv.slice(2));
   if (flags["no-route"]) flags.route = false;
@@ -260,6 +317,11 @@ async function main(): Promise<number> {
       return cmdValidate(flags);
     case "serve":
       return cmdServe(flags);
+    case "facts": {
+      const facts = collectFacts(process.cwd());
+      console.log(flags.json ? JSON.stringify(facts, null, 2) : formatFacts(facts));
+      return 0;
+    }
     case "prompt":
       console.log(aiPrompt(typeof flags.file === "string" ? flags.file : DEFAULT_FILE));
       return 0;

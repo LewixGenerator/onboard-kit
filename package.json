@@ -3,6 +3,14 @@
   "version": "0.2.0",
   "description": "Onboarding de projetos gerado pela sua IA local: um JSON descreve o projeto e o onboarding-kit o apresenta em /onboarding.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LewixGenerator/onboard-kit.git"
+  },
+  "homepage": "https://github.com/LewixGenerator/onboard-kit#readme",
+  "bugs": {
+    "url": "https://github.com/LewixGenerator/onboard-kit/issues"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {

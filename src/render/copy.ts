@@ -9,10 +9,15 @@ export type ChapterId =
   | "architecture"
   | "setup"
   | "conventions"
+  | "workflow"
+  | "quality"
+  | "docs"
   | "tours"
   | "gotchas"
+  | "todos"
   | "decisions"
   | "mission"
+  | "cheatsheet"
   | "finale";
 
 /** Matiz (HSL) de cada capítulo: cada etapa do tour tem a sua cor. */
@@ -27,10 +32,15 @@ export const CHAPTER_HUES: Record<ChapterId, number> = {
   architecture: 285,
   setup: 145,
   conventions: 42,
+  workflow: 262,
+  quality: 140,
+  docs: 32,
   tours: 205,
   gotchas: 12,
+  todos: 350,
   decisions: 305,
   mission: 165,
+  cheatsheet: 230,
   finale: 255,
 };
 
@@ -46,10 +56,15 @@ const pt = {
     architecture: "Arquitetura",
     setup: "Mãos à obra",
     conventions: "Jeito da casa",
+    workflow: "Git e fluxo",
+    quality: "Qualidade",
+    docs: "Leitura obrigatória",
     tours: "Tour pelo código",
     gotchas: "Cuidados",
+    todos: "TODOs",
     decisions: "Decisões",
     mission: "Primeira missão",
+    cheatsheet: "Cola do dia a dia",
     finale: "Pronto!",
   } as Record<ChapterId, string>,
   welcome: {
@@ -104,6 +119,9 @@ const pt = {
     title: "Como as peças se encaixam",
     modulesTitle: "Onde fica cada coisa",
     modulesLede: "O mapa das pastas que importam.",
+    styleTitle: "O desenho do sistema",
+    styleLede: "O estilo da arquitetura e os padrões que você vai encontrar no código.",
+    patterns: "Padrões que você vai ver",
   },
   setup: {
     title: "Bora rodar na sua máquina",
@@ -137,6 +155,54 @@ const pt = {
     lede: "Decisões que explicam o formato do código.",
     context: "O contexto",
     decision: "O que decidimos",
+  },
+  workflow: {
+    branchesTitle: "Como o código anda pelas branches",
+    branchesLede: "O caminho de uma mudança até a branch principal.",
+    model: "Modelo",
+    main: "Branch principal",
+    commitsTitle: "Como escrever um commit",
+    commitsLede: "O padrão de mensagem que o time segue.",
+    format: "O formato",
+    examples: "Exemplos reais do histórico",
+    enforced: "Garantido por",
+    prTitle: "Do PR até o ar",
+    prLede: "Como uma mudança é revisada e chega em produção.",
+    pr: "Pull request",
+    checklist: "Antes de pedir review",
+    release: "Release e deploy",
+  },
+  quality: {
+    title: "Como garantimos a qualidade",
+    lede: "Testes e verificações automáticas que protegem o projeto (e você).",
+    testing: "Testes",
+    where: "Onde ficam",
+    run: "Como rodar",
+    checks: "Verificações automáticas",
+  },
+  docs: {
+    title: "Leitura obrigatória",
+    lede: "Os documentos que valem o seu tempo na primeira semana.",
+    notesTitle: "Recados deixados no código",
+    notesLede: "Comentários que o time deixou para quem vem depois. Leve a sério.",
+  },
+  todos: {
+    title: "O que ficou para depois",
+    lede: "Pendências e dívidas técnicas registradas no código. Bom saber antes de mexer por perto.",
+    total: "marcadores no código",
+    live: "contados agora, direto do código",
+    byFolder: "Onde se concentram",
+    highlights: "Os que importam para você",
+    impact: "Por que importa",
+  },
+  cheatsheet: {
+    title: "Cola do dia a dia",
+    lede: "O que você vai consultar toda hora, numa página só. Vale um print 😉",
+    branch: "Nova branch",
+    commit: "Commit",
+    main: "Branch principal",
+    pr: "Pull request",
+    read: "Leia primeiro",
   },
   mission: {
     title: "Sua primeira missão",
@@ -190,6 +256,10 @@ const pt = {
       gotchas: "Cuidados",
       decisions: "Decisões",
       firstTasks: "Primeira missão",
+      workflow: "Git e fluxo",
+      quality: "Qualidade",
+      docs: "Documentação",
+      todos: "TODOs",
       brand: "Cores e logo",
     } as Record<string, string>,
   },
@@ -215,10 +285,15 @@ const en: Copy = {
     architecture: "Architecture",
     setup: "Hands on",
     conventions: "House style",
+    workflow: "Git and flow",
+    quality: "Quality",
+    docs: "Must-read",
     tours: "Code tour",
     gotchas: "Watch out",
+    todos: "TODOs",
     decisions: "Decisions",
     mission: "First mission",
+    cheatsheet: "Cheat sheet",
     finale: "Ready!",
   },
   welcome: {
@@ -267,6 +342,9 @@ const en: Copy = {
     title: "How the pieces fit together",
     modulesTitle: "Where everything lives",
     modulesLede: "A map of the folders that matter.",
+    styleTitle: "The shape of the system",
+    styleLede: "The architectural style and the patterns you'll meet in the code.",
+    patterns: "Patterns you'll see",
   },
   setup: {
     title: "Let's run it on your machine",
@@ -297,6 +375,54 @@ const en: Copy = {
     lede: "Decisions that explain the shape of the code.",
     context: "The context",
     decision: "What we decided",
+  },
+  workflow: {
+    branchesTitle: "How code moves through branches",
+    branchesLede: "The path a change takes to the main branch.",
+    model: "Model",
+    main: "Main branch",
+    commitsTitle: "How to write a commit",
+    commitsLede: "The message format the team follows.",
+    format: "The format",
+    examples: "Real examples from history",
+    enforced: "Enforced by",
+    prTitle: "From PR to production",
+    prLede: "How a change gets reviewed and shipped.",
+    pr: "Pull request",
+    checklist: "Before asking for review",
+    release: "Release and deploy",
+  },
+  quality: {
+    title: "How we keep quality up",
+    lede: "Tests and automated checks that protect the project (and you).",
+    testing: "Tests",
+    where: "Where they live",
+    run: "How to run",
+    checks: "Automated checks",
+  },
+  docs: {
+    title: "Must-read",
+    lede: "The documents worth your time in your first week.",
+    notesTitle: "Notes left in the code",
+    notesLede: "Comments the team left for whoever comes next. Take them seriously.",
+  },
+  todos: {
+    title: "What was left for later",
+    lede: "Pending work and tech debt recorded in the code. Good to know before touching nearby.",
+    total: "markers in the code",
+    live: "counted right now, straight from the code",
+    byFolder: "Where they pile up",
+    highlights: "The ones that matter to you",
+    impact: "Why it matters",
+  },
+  cheatsheet: {
+    title: "Cheat sheet",
+    lede: "What you'll look up all the time, on a single page. Worth a screenshot 😉",
+    branch: "New branch",
+    commit: "Commit",
+    main: "Main branch",
+    pr: "Pull request",
+    read: "Read first",
   },
   mission: { title: "Your first mission", lede: "Small, safe tasks to start contributing. Check them off as you go." },
   finale: {
@@ -347,6 +473,10 @@ const en: Copy = {
       gotchas: "Watch out",
       decisions: "Decisions",
       firstTasks: "First mission",
+      workflow: "Git and flow",
+      quality: "Quality",
+      docs: "Docs",
+      todos: "TODOs",
       brand: "Colors and logo",
     },
   },

@@ -1,5 +1,7 @@
 # onboarding-kit
 
+[![npm](https://img.shields.io/npm/v/onboarding-kit)](https://www.npmjs.com/package/onboarding-kit) · [Repositório no GitHub](https://github.com/LewixGenerator/onboard-kit) · [Reportar um problema](https://github.com/LewixGenerator/onboard-kit/issues)
+
 Onboarding de projetos gerado pela **sua IA local** e exibido em `/onboarding`, dentro do próprio app.
 
 1. O `onboarding-kit` cria um `onboarding.json` com todos os campos em branco e instruções para a IA.
@@ -35,12 +37,17 @@ Se você abrir `/onboarding` antes da IA terminar, a página mostra o prompt pro
 |---|---|
 | `init` | Cria o `onboarding.json` e liga a rota. Opções: `--framework`, `--lang`, `--no-route`, `--force` |
 | `prompt` | Mostra o texto para enviar à IA |
+| `facts` | Lista os fatos que a IA usa como base: branches, padrão dos commits recentes, CI, hooks, templates de PR, testes, sinais de arquitetura (monorepo, vários Dockerfiles, mensageria, pastas de camadas), TODOs e observações em comentários. `--json` para saída em JSON |
 | `validate` | Confere campos obrigatórios, itens-modelo esquecidos, se as evidências existem, se há segredos e se o JSON está atrás do commit atual. Sai com código 1 em caso de erro (útil na CI) |
 | `serve` | Abre a apresentação em `http://localhost:4321` (`--port` para mudar) |
 
 ## A apresentação
 
-A página `/onboarding` é um tour em slides, contado como uma história: boas-vindas → o porquê → o negócio → o produto → vocabulário (com cartões que viram e um quiz) → regras do jogo → stack → arquitetura → rodando na máquina → jeito da casa → tour pelo código → cuidados → decisões → primeira missão → final.
+A página `/onboarding` é um tour em slides, contado do ponto de vista de quem acabou de ser contratado: boas-vindas → o porquê → o negócio → o produto → vocabulário (com cartões que viram e um quiz) → regras do jogo → stack → arquitetura (estilo, padrões, diagrama, pastas e decisões) → rodando na máquina → jeito da casa → Git e fluxo (branches, commits, PR e deploy) → qualidade (testes e verificações automáticas) → leitura obrigatória (docs e recados deixados no código) → tour pelo código → cuidados → TODOs → primeira missão → cola do dia a dia → final.
+
+Os TODOs são contados direto do código a cada visita, então o número nunca fica desatualizado. A IA escolhe só os que importam para quem está chegando e explica o impacto de cada um.
+
+Para não sobrecarregar, cada seção tem um limite de itens (o `validate` avisa quando passa) e capítulos sem conteúdo não aparecem.
 
 Os capítulos entram com uma cortina animada, os elementos aparecem em cascata, o fundo muda de cor junto com o capítulo e os cartões inclinam com o mouse. Tudo isso é desligado quando o sistema pede movimento reduzido.
 
@@ -57,7 +64,7 @@ Com uma cor, os capítulos variam em torno dela. Com várias, eles se revezam en
 
 ## O que vai no JSON
 
-`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks` e `brand` (cores e logo).
+`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks`, `workflow` (modelo de branches, padrão de commit com exemplos reais, processo de PR, ambientes de deploy), `quality` (como o time testa e o que roda na CI e nos hooks), `docs`, `codeNotes` (NOTE/IMPORTANT/WARNING/@deprecated relevantes), `todos` e `brand` (cores e logo). `architecture` também traz `style` (monolito, microsserviços, hexagonal…) e `patterns`.
 
 Toda afirmação aponta para arquivos reais (`evidence: ["src/orders/orders.service.ts:42"]`). Quando `project.repoUrl` está preenchido, essas referências viram links para o código.
 
