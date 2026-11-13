@@ -99,9 +99,9 @@ function anchor(line: string | undefined): string | undefined {
 
 /** Nova linha de uma evidência: a ocorrência do mesmo texto mais próxima da posição antiga. */
 export function relocateLine(oldSource: string, newSource: string, line: number): number | undefined {
-  const text = anchor(oldSource.split("\n")[line - 1]);
+  const text = anchor(oldSource.split(/\r?\n/)[line - 1]);
   if (!text) return undefined;
-  const lines = newSource.split("\n");
+  const lines = newSource.split(/\r?\n/);
   if (lines[line - 1]?.trim() === text) return line;
   let best: number | undefined;
   lines.forEach((l, i) => {

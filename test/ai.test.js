@@ -49,33 +49,40 @@ test("MCP: initialize, tools/list e tools/call pelo stdio", async () => {
   await new Promise((r) => child.on("close", r));
 });
 
-// a CLI falsa é um script com shebang, que o Windows não executa
-test("init --ai roda a CLI de IA instalada e valida no fim", { skip: process.platform === "win32" }, () => {
+test("init --ai roda a CLI de IA instalada e valida no fim", () => {
   const dir = tmpProject({ "package.json": JSON.stringify({ name: "app", dependencies: { express: "5" } }), "src/index.js": "line1\n// TODO: frete internacional\nline3\n" });
   const bin = join(dir, ".bin");
   mkdirSync(bin);
-  // "claude" falso: registra os argumentos e preenche o onboarding como a IA faria
-  const fake = join(bin, "claude");
+  // "claude" falso: registra argumentos e entrada padrão e preenche o onboarding como a IA faria
+  const script = join(bin, "claude.js");
   writeFileSync(
-    fake,
-    `#!/usr/bin/env node
-if (process.argv[2] === "--version") process.exit(0);
+    script,
+    `if (process.argv[2] === "--version") process.exit(0);
 const fs = require("fs");
-fs.writeFileSync("args.json", JSON.stringify(process.argv.slice(2)));
+let stdin = "";
+try { if (!process.stdin.isTTY) stdin = fs.readFileSync(0, "utf8"); } catch {}
+fs.writeFileSync("args.json", JSON.stringify({ args: process.argv.slice(2), stdin }));
 fs.writeFileSync("onboarding.json", fs.readFileSync(${JSON.stringify(join(dir, "filled.json"))}, "utf8"));
 `,
   );
-  chmodSync(fake, 0o755);
+  if (process.platform === "win32") {
+    // como o npm instala no Windows: um atalho .cmd
+    writeFileSync(join(bin, "claude.cmd"), `@node "%~dp0claude.js" %*\r\n`);
+  } else {
+    writeFileSync(join(bin, "claude"), `#!/usr/bin/env node\nrequire(${JSON.stringify(script)});\n`);
+    chmodSync(join(bin, "claude"), 0o755);
+  }
   writeFileSync(join(dir, "filled.json"), JSON.stringify(filledData()));
   const env = { ...process.env, NO_COLOR: "1", PATH: `${bin}${require("node:path").delimiter}${process.env.PATH}` };
   const out = execFileSync("node", [CLI, "init", "--no-route", "--ai"], { cwd: dir, env }).toString();
   assert.match(out, /Rodando claude/);
   assert.match(out, /válido/);
   assert.match(out, /Cobertura: \d+%/);
-  const args = JSON.parse(readFileSync(join(dir, "args.json"), "utf8"));
+  const { args, stdin } = JSON.parse(readFileSync(join(dir, "args.json"), "utf8"));
   assert.equal(args[0], "-p");
-  assert.match(args[1], /_instructions/);
-  assert.match(args[3], /Bash\(npx onboarding-kit:\*\)/);
+  // no Windows o prompt vai pela entrada padrão; nos outros, como argumento
+  assert.match(process.platform === "win32" ? stdin : args[1], /_instructions/);
+  assert.ok(args.some((a) => /Bash\(npx onboarding-kit:\*\)/.test(a)));
   assert.equal(kit.detectAiCli("gemini-que-nao-existe"), undefined);
 });
 

@@ -260,7 +260,7 @@ function readYamlList(path: string, key: string): string[] {
   }
   const items: string[] = [];
   let inside = false;
-  for (const line of source.split("\n")) {
+  for (const line of source.split(/\r?\n/)) {
     if (new RegExp(`^${key}:\\s*$`).test(line)) {
       inside = true;
     } else if (inside && /^\s*-\s*/.test(line)) {

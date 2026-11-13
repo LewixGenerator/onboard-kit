@@ -98,7 +98,7 @@ export function scanMarkers(root: string, files = listRepoFiles(root), folderOf 
       continue;
     }
     scannedFiles++;
-    const lines = source.split("\n");
+    const lines = source.split(/\r?\n/);
     lines.forEach((line, i) => {
       const m = MARKER_RE.exec(line);
       if (!m) return;
@@ -233,7 +233,7 @@ export function peopleFacts(root: string, areas: string[]): PeopleFacts {
     } catch {
       continue;
     }
-    for (const line of source.split("\n")) {
+    for (const line of source.split(/\r?\n/)) {
       const [pattern, ...owners] = line.replace(/#.*$/, "").trim().split(/\s+/);
       if (pattern && owners.length) codeowners.push({ pattern, owners: owners.filter((o) => !o.includes("@") || o.startsWith("@")) });
     }

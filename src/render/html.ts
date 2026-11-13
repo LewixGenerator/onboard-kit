@@ -79,7 +79,7 @@ export function codeSnippet(ref: Evidence | undefined, root: string | undefined,
   let lines: string[];
   try {
     if (!statSync(full).isFile() || statSync(full).size > SNIPPET_MAX_BYTES) return "";
-    lines = readFileSync(full, "utf8").split("\n");
+    lines = readFileSync(full, "utf8").split(/\r?\n/);
   } catch {
     return "";
   }

@@ -95,3 +95,11 @@ test("render em espanhol quando meta.language é es", () => {
   assert.match(html, /data-anchor="bienvenida"/);
   assert.match(html, /Imprimir \/ PDF/);
 });
+
+test("trechos de código de arquivos com CRLF não carregam \\r", () => {
+  const { codeSnippet } = require("../dist/render/html.js");
+  const root = tmpProject({ "src/a.ts": "const a = 1;\r\nconst b = 2;\r\nconst c = 3;\r\n" });
+  const html = codeSnippet("src/a.ts:2", root);
+  assert.match(html, /const b = 2;/);
+  assert.doesNotMatch(html, /\r/);
+});

@@ -402,8 +402,12 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
 
 /* ── telas pequenas ── */
 @media (max-width:760px){
-  .topbar{padding:12px 16px;gap:10px}
+  .topbar{padding:12px 16px;gap:8px}
   .brand-name{display:none}
+  .topbar .icon-btn{width:36px;height:36px;border-radius:10px}
+  .segments{gap:3px}
+  .seg{min-width:4px}
+  .brand:not(:has(img)){display:none}
   .slide-inner{padding:12px 16px 28px}
   .controls{padding:10px 16px 14px;gap:8px}
   .nav-btn{padding:11px 14px}
@@ -417,6 +421,11 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
   .journey-wrap{margin-top:32px}
   .solo-card{padding:24px}
   .prompt-text{padding-bottom:64px}
+}
+@media (max-width:420px){
+  .topbar{gap:6px;padding:10px 12px}
+  .segments{gap:2px}
+  .seg{min-width:3px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 /* busca (Ctrl/Cmd+K) */
@@ -464,6 +473,13 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
   .slide-inner{max-height:none;overflow:visible;padding:0}
   .slide .reveal>*,.slide .welcome>*,.slide .finale>*,.slide .tour-step>*{opacity:1!important;transform:none!important}
   .card,.module,.task{transform:none!important;box-shadow:none!important}
+  /* o Chrome ignora backface-visibility ao imprimir: sem 3D, termo e definição saem empilhados */
+  .flip{min-height:0;break-inside:avoid}
+  .flip-inner{transform:none!important;transform-style:flat;min-height:0;display:flex;flex-direction:column}
+  .face{position:static;inset:auto;transform:none!important;backface-visibility:visible;-webkit-backface-visibility:visible;overflow:visible;box-shadow:none}
+  .front{border-radius:20px 20px 0 0;border-bottom:0;gap:4px}
+  .front small{display:none}
+  .back{border-radius:0 0 20px 20px;padding-top:12px}
   a.ev{color:inherit}
 }
 `;
