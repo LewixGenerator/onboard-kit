@@ -1,6 +1,6 @@
 {
   "name": "onboarding-kit",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Onboarding de projetos JavaScript e TypeScript gerado pela sua IA local: um JSON descreve o projeto e o onboarding-kit o apresenta em /onboarding. Next, Nuxt, SvelteKit, Astro, Remix, NestJS, Express, Fastify, Koa, Hono, Vite e mais.",
   "license": "MIT",
   "repository": {
