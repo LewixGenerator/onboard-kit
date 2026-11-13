@@ -53,10 +53,36 @@
 ![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-000?logo=bun&logoColor=white)
 ![Deno](https://img.shields.io/badge/Deno-000?logo=deno&logoColor=white)
+<br>
+![PHP](https://img.shields.io/badge/PHP-777BB4?logo=php&logoColor=white)
+![Laravel](https://img.shields.io/badge/Laravel-FF2D20?logo=laravel&logoColor=white)
+![Symfony](https://img.shields.io/badge/Symfony-000?logo=symfony&logoColor=white)
+![WordPress](https://img.shields.io/badge/WordPress-21759B?logo=wordpress&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-092E20?logo=django&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Ruby on Rails](https://img.shields.io/badge/Rails-D30001?logo=rubyonrails&logoColor=white)
+![Go](https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?logo=springboot&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-512BD4?logo=dotnet&logoColor=white)
 
-**[Ver a demo](https://lewixgenerator.github.io/onboard-kit/)** · [English](README.en.md) · [Repositório no GitHub](https://github.com/LewixGenerator/onboard-kit) · [npm](https://www.npmjs.com/package/onboarding-kit) · [Reportar um problema](https://github.com/LewixGenerator/onboard-kit/issues)
+**[Ver a demo](https://lewixgenerator.github.io/onboard-kit/)** · [English](README.en.md) · [Comparativo com outras soluções](https://github.com/LewixGenerator/onboard-kit/blob/master/docs/comparativo.md) · [Repositório no GitHub](https://github.com/LewixGenerator/onboard-kit) · [npm](https://www.npmjs.com/package/onboarding-kit) · [Reportar um problema](https://github.com/LewixGenerator/onboard-kit/issues)
 
 </div>
+
+> [!IMPORTANT]
+> ## 🔒 Seu código e seus dados não saem da sua máquina
+>
+> **O onboarding-kit não coleta nenhuma informação de nenhum projeto.** Não tem telemetria, não tem conta, não tem servidor nosso: não existe para onde mandar seus dados, e nada é enviado para nós nem para ninguém.
+>
+> - **Tudo roda localmente.** Os números, gráficos e sinais saem do `git` e dos arquivos do repositório, calculados na sua máquina, sem acessar a rede.
+> - **Quem lê o código é a IA que você já usa** (Claude Code, Cursor, Copilot…), com as permissões que você já deu a ela. O kit nunca chama uma IA por conta própria; o `--ai` só abre a CLI de IA que já está instalada no seu computador.
+> - **Não mexe na estrutura do projeto.** Nada é movido, renomeado ou apagado, e seu código não é reescrito. O `init` só acrescenta: o `onboarding.json`, a rota `/onboarding` (um arquivo novo, ou uma linha no `vite.config`/`app.module.ts`) e o script `onboarding`, tudo opcional (`--no-route`, `--no-script`). Os outros comandos só escrevem nos arquivos do próprio onboarding (`onboarding*.json`); o `agents` acrescenta um bloco ao `AGENTS.md`.
+> - **Desligado em produção** por padrão, e o `validate` barra segredos (tokens, chaves, senhas) antes de entrarem no arquivo.
+> - **Dá para conferir:** código aberto (MIT) e zero dependências.
+>
+> As únicas conexões externas não levam nada do projeto: a página, no navegador, baixa o Mermaid e as fontes de CDNs públicas (jsDelivr e Google Fonts), e o editor pode baixar o JSON Schema do `$schema`. Para uma página sem nenhuma conexão, use `export --offline`, que baixa esses arquivos uma vez e os embute no HTML.
 
 ---
 
@@ -66,7 +92,7 @@ Onboarding de projetos gerado pela **sua IA local** e exibido em `/onboarding`, 
 2. Você pede para a IA que já usa no projeto (Claude Code, Cursor, Copilot…) ler e preencher o arquivo.
 3. O `onboarding-kit` valida o resultado e mostra uma apresentação do projeto em `/onboarding`.
 
-Funciona em praticamente qualquer projeto do ecossistema JavaScript: metaframeworks, servidores HTTP, SPAs com Vite, apps mobile e desktop, bibliotecas e CLIs, em **Node.js, Bun ou Deno**, escritos em TypeScript, JavaScript ou linguagens que compilam para JS. Não tem dependências em runtime.
+Funciona em praticamente qualquer projeto do ecossistema JavaScript (metaframeworks, servidores HTTP, SPAs com Vite, apps mobile e desktop, bibliotecas e CLIs, em **Node.js, Bun ou Deno**) e também em projetos **PHP, Python, Ruby, Go, Java/Kotlin e .NET** (veja [Outras linguagens](#outras-linguagens)). Não tem dependências em runtime.
 
 ## Começando
 
@@ -87,6 +113,7 @@ O `init` detecta o framework e liga a rota `/onboarding` do jeito nativo de cada
 | **Create React App** | cria `src/setupProxy.js` |
 | **Astro, Gatsby, Express, Fastify, Koa, Hono, Elysia, AdonisJS, Webpack/Vue CLI** | mostra o trecho de 2 ou 3 linhas para colar |
 | **Angular, React Native/Expo, Electron, bibliotecas e CLIs** | só o script abaixo |
+| **PHP, Python, Ruby, Go, Java/Kotlin e .NET** | script `composer onboarding` (PHP) e o trecho para servir `/onboarding` só em dev; veja [Outras linguagens](#outras-linguagens) |
 
 Em todos os casos, o `init` também adiciona o script `onboarding` ao `package.json` (`npm run onboarding`, `pnpm onboarding`…), que abre a apresentação em `localhost:4321` sem precisar subir o app. Use `--no-script` para pular.
 
@@ -110,7 +137,7 @@ Se você abrir `/onboarding` antes da IA terminar, a página mostra o prompt pro
 |---|---|
 | `init` | Cria o `onboarding.json` e liga a rota. Opções: `--framework`, `--lang`, `--project` (monorepo), `--people`, `--ai`, `--no-route`, `--no-script`, `--force` |
 | `prompt` | Mostra o texto para enviar à IA |
-| `facts` | Lista os fatos que a IA usa como base: framework, UI, runtime e linguagens do repositório, branches, padrão dos commits recentes, CI, hooks, templates de PR, testes, subprojetos do monorepo (framework e dependências internas de cada um), sinais de arquitetura (monorepo, vários Dockerfiles, mensageria, pastas de camadas), TODOs e observações em comentários. `--project <pasta>` mostra os fatos de um subprojeto só; `--people` inclui CODEOWNERS e autores por área; `--json` para saída em JSON |
+| `facts` | Lista os fatos que a IA usa como base: framework, UI, runtime e linguagens do repositório, branches, padrão dos commits recentes, CI, hooks, templates de PR, testes, subprojetos do monorepo (framework e dependências internas de cada um), sinais de arquitetura (monorepo, vários Dockerfiles, mensageria, pastas de camadas), TODOs e observações em comentários, a saúde do projeto, os sinais (gráficos da visão executiva) e as integrações. Em projetos PHP, Python, Ruby, Go, Java/Kotlin e .NET, mostra também o framework, as dependências, as ferramentas de teste e qualidade e os comandos. `--project <pasta>` mostra os fatos de um subprojeto só; `--people` inclui CODEOWNERS e autores por área; `--json` para saída em JSON |
 | `validate` | Confere campos obrigatórios, itens-modelo esquecidos, se as evidências existem, se há segredos, textos longos demais para um slide, itens repetidos, erros comuns de Mermaid, subprojetos esquecidos e se o JSON está atrás do commit atual. Sai com código 1 em caso de erro. `--ci` gera anotações no GitHub Actions (automático lá dentro) e `--strict` trata avisos como erros. Mostra a nota de cobertura; `--min-score 70` falha abaixo dela e `--badge badge.json` grava o JSON de um badge do shields.io |
 | `status` | Compara o código com o commit em que o onboarding foi gerado: aponta os itens que citam arquivos que mudaram, evidências apagadas, arquivos novos que ninguém cita e monta o prompt para a IA atualizar só isso. `--fix` corrige sozinho as evidências que só mudaram de linha ou de arquivo, `--ai` manda o prompt direto para a IA instalada. Também lista o feedback deixado nos slides |
 | `agents` | Ensina sua IA a manter o onboarding em dia: adiciona um trecho ao `AGENTS.md` (e ao `CLAUDE.md` e `.github/copilot-instructions.md`, se existirem), cria o comando `/onboarding` do Claude Code e a regra do Cursor |
@@ -178,7 +205,7 @@ Navegação por ← →, espaço, swipe no celular ou pelos segmentos coloridos 
 Cada slide tem um link direto, para mandar a parte certa para quem pergunta: `/onboarding#/arquitetura`, `/onboarding#/arquitetura/2`. O botão **Imprimir / PDF** (no índice e no final) gera um slide por página. A interface da apresentação fala português, inglês e espanhol, conforme `meta.language`.
 
 - **Português ou inglês:** o seletor PT | EN no topo troca o idioma (`/onboarding?lang=en`). O que já foi traduzido com `translate` aparece no outro idioma; o que falta fica no original, com um aviso e o comando para traduzir. Como a tradução é incremental, a IA só traduz o que mudou, sem gastar tokens relendo o projeto.
-- **Visão executiva:** para P.O., CTO e gestão. Um painel calculado direto do git e dos arquivos, sem IA: ritmo de entregas, atividade, concentração de conhecimento (quantas pessoas fazem 80% dos commits), dívida técnica por mil linhas, testes e cobertura, dependências e licenças. Depois, as integrações externas (detectadas pelas dependências e arquivos de infra, com o papel de cada uma escrito pela IA), os 3 maiores riscos e as áreas que mais mudam. A trilha **gestão** (`?trilha=gestao`) vem pronta e mostra só negócio, produto, visão executiva, arquitetura, fluxo, qualidade, TODOs e perguntas em aberto.
+- **Visão executiva:** para P.O., CTO e gestão. Um painel calculado direto do git e dos arquivos, sem IA: ritmo de entregas, atividade, concentração de conhecimento (quantas pessoas fazem 80% dos commits), dívida técnica por mil linhas, testes e cobertura, dependências e licenças. Logo depois, os **sinais**: os 3 alertas que mais fogem do normal no histórico do git, com gráfico, escolhidos entre arquivos grandes que mudam muito (dispersão tamanho × alterações), conhecimento concentrado por pasta, dívida que envelhece (idade dos TODO/FIXME pelo `git blame`), ritmo caindo (commits por semana), acoplamento escondido (arquivos de pastas diferentes que sempre mudam juntos), correções de emergência (revert e hotfix), módulos sem teste e domínio importando infraestrutura. Se nada foge do normal, o slide não aparece; a lista completa fica no `facts`. Depois, as integrações externas (detectadas pelas dependências e arquivos de infra, com o papel de cada uma escrito pela IA), os 3 maiores riscos e as áreas que mais mudam. A trilha **gestão** (`?trilha=gestao`) vem pronta e mostra só negócio, produto, visão executiva, arquitetura, fluxo, qualidade, TODOs e perguntas em aberto.
 - **Perguntas em aberto:** o que a IA não conseguiu confirmar no código vira pergunta para o time, em vez de chute.
 - **Confiança:** itens deduzidos (`confidence: "inferred"`) aparecem marcados como "deduzido" e valem menos na nota de cobertura.
 
@@ -281,12 +308,48 @@ Todos os adapters aceitam `{ file?: string; enabled?: boolean; password?: string
 
 Em projetos sem servidor web (apps mobile, desktop, bibliotecas), use `npx onboarding-kit serve`.
 
-## Linguagens
+## Outras linguagens
 
-O `facts` e a varredura de TODOs entendem os arquivos do universo JavaScript: TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`), JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`), Vue, Svelte, Astro, MDX, Marko, Glimmer/Ember (`.gjs`, `.gts`), Handlebars, EJS, Pug, Nunjucks, Liquid, CoffeeScript, ReScript, Reason, Elm, PureScript, ClojureScript, Civet e Imba, além de CSS, SCSS, Sass, Less, Stylus, GraphQL, Prisma e SQL. Em monorepos poliglotas, Python, Go, Rust, Ruby, Java, Kotlin, PHP, C#, Swift e Dart também entram na conta.
+O onboarding-kit é um pacote npm, mas o projeto não precisa ser JavaScript: basta ter o **Node.js instalado na máquina** para rodar `npx onboarding-kit`. Nada é instalado no projeto.
+
+```bash
+npx onboarding-kit init      # na raiz do projeto
+npx onboarding-kit serve     # abre a apresentação em localhost:4321
+```
+
+| Linguagem | Lido de | Frameworks reconhecidos |
+|---|---|---|
+| **PHP** | `composer.json`, `composer.lock` | Laravel, Symfony, WordPress, Drupal, Magento, CodeIgniter, Slim |
+| **Python** | `pyproject.toml` (PEP 621, Poetry, `dependency-groups`), `requirements*.txt`, `Pipfile` | Django, FastAPI, Flask |
+| **Ruby** | `Gemfile` | Ruby on Rails, Sinatra |
+| **Go** | `go.mod` | Gin, Echo, Fiber |
+| **Java / Kotlin** | `pom.xml`, `build.gradle(.kts)` | Spring Boot, Quarkus |
+| **.NET** | `*.sln`, `*.csproj`/`*.fsproj` | ASP.NET Core |
+
+Para cada uma, o kit detecta o framework, as dependências, as ferramentas de teste (PHPUnit/Pest, pytest, RSpec, JUnit, xUnit…) e de qualidade (PHPStan, Pint, Ruff, mypy, RuboCop, golangci-lint…), os comandos do dia a dia (scripts do Composer, `artisan`, `manage.py`, `bin/rails`, `mvnw`, `dotnet`…), as integrações (Stripe, Sentry, AWS, Redis, Celery, Sidekiq…), as licenças restritivas do `composer.lock` e a cobertura de testes (Clover e Cobertura, além do lcov). A IA recebe instruções específicas do framework, como já acontece com os de JavaScript.
+
+- **Laravel com Vite:** o `package.json` que só empacota assets não engana a detecção; o projeto aparece como Laravel e o `package.json` não é alterado.
+- **PHP:** o `init` adiciona o script `composer onboarding` ao `composer.json` (sem o limite de 300 s do Composer).
+- **`/onboarding` dentro do app:** gere o HTML com `npx onboarding-kit export --out onboarding.html` e sirva o arquivo só em desenvolvimento. O `init` mostra o trecho pronto para Laravel, Symfony, Django, FastAPI, Flask, Rails, Spring, ASP.NET Core e Gin. Por exemplo, no Laravel:
+
+  ```php
+  // routes/web.php
+  if (app()->environment('local')) {
+      Route::get('/onboarding', fn () => response()->file(base_path('onboarding.html')));
+  }
+  ```
+
+- **Repositórios mistos** (ex.: `backend/` em Laravel e `frontend/` em Vue) viram subprojetos, cada um com seu framework.
+
+O `facts` e a varredura de TODOs também entendem os arquivos do universo JavaScript: TypeScript, JavaScript, Vue, Svelte, Astro, MDX, Marko, Glimmer/Ember, Handlebars, EJS, Pug, Nunjucks, Liquid, CoffeeScript, ReScript, Reason, Elm, PureScript, ClojureScript, Civet e Imba, além de CSS, SCSS, Sass, Less, Stylus, GraphQL, Prisma e SQL. Rust, Swift e Dart entram na contagem de linguagens e de TODOs, mas ainda sem detecção de framework.
+
+## Comparado com outras soluções
+
+Swimm, DeepWiki, o Code Wiki do Google, Backstage, CodeScene e as ferramentas de métricas de engenharia resolvem partes diferentes do mesmo problema. O [comparativo](https://github.com/LewixGenerator/onboard-kit/blob/master/docs/comparativo.md) mostra, lado a lado, onde cada uma se encaixa, o que o onboarding-kit não faz e quais combinações funcionam bem. Em resumo, o onboarding-kit é o único da lista que roda 100% local, usa a IA que o time já tem e entrega uma apresentação de onboarding dentro do próprio app.
 
 ## Segurança
 
+- **Privacidade:** nenhum dado do projeto sai da sua máquina (veja o [aviso no topo](#-seu-código-e-seus-dados-não-saem-da-sua-máquina)).
 - A rota fica **desligada quando `NODE_ENV=production`**. Para ligar de propósito, passe `enabled: true`.
 - Com `ONBOARDING_PASSWORD` (ou `password`), a rota pede senha (HTTP Basic, qualquer usuário) e fica disponível também em produção. Útil para publicar em staging.
 - O feedback só aceita `application/json`, o que impede envios a partir de formulários de outros sites.

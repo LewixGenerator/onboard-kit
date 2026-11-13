@@ -30,7 +30,32 @@ export type Framework =
   | "react-native"
   | "electron"
   | "library"
-  | "node";
+  | "node"
+  // outras linguagens (detectadas pelo composer.json, pyproject.toml, Gemfile, go.mod, pom.xml/build.gradle e *.csproj)
+  | "laravel"
+  | "symfony"
+  | "wordpress"
+  | "drupal"
+  | "magento"
+  | "codeigniter"
+  | "slim"
+  | "php"
+  | "django"
+  | "fastapi"
+  | "flask"
+  | "python"
+  | "rails"
+  | "sinatra"
+  | "ruby"
+  | "gin"
+  | "echo"
+  | "fiber"
+  | "go"
+  | "spring"
+  | "quarkus"
+  | "java"
+  | "aspnet"
+  | "dotnet";
 
 export interface OnboardingMeta {
   schemaVersion: string;

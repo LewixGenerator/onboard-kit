@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 import { detectFramework, detectSubprojects, readProjectManifests } from "./detect";
 import { collectFacts } from "./facts";
 import { detectIntegrations, projectHealth } from "./health";
+import { projectSignals } from "./signals";
 import { resolveFile } from "./load";
 import { applyDrift, onboardingStatus, statusPrompt } from "./status";
 import { createTemplate } from "./template";
@@ -70,7 +71,7 @@ export function mcpTools(file = resolveFile()): Tool[] {
           people: { type: "boolean", description: "Inclui CODEOWNERS e autores por área (só se o time pediu a seção people)." },
         },
       },
-      run: ({ project, people }) => ({ ...collectFacts(root, { project: typeof project === "string" ? project : undefined, people: people === true }), health: projectHealth(root), integrations: detectIntegrations(root) }),
+      run: ({ project, people }) => ({ ...collectFacts(root, { project: typeof project === "string" ? project : undefined, people: people === true }), health: projectHealth(root), integrations: detectIntegrations(root), signals: projectSignals(root) }),
     },
     {
       name: "onboarding_status",

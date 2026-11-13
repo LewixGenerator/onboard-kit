@@ -5,7 +5,8 @@ import { createServer } from "node:http";
 import { createInterface } from "node:readline";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { createOnboardingHandler } from "../adapters/node";
-import { dependencyNames, detectFramework, detectProject, detectSubprojects, findSubproject, FRAMEWORK_IDS, FRAMEWORKS, readProjectManifests, type Subproject } from "../detect";
+import { dependencyNames, detectFramework, detectFrameworkAt, detectProject, detectSubprojects, findSubproject, FRAMEWORK_IDS, FRAMEWORKS, isEcosystemFramework, readProjectManifests, type Subproject } from "../detect";
+import { hasAnyManifest } from "../ecosystems";
 import { collectFacts, NOTE_KINDS, TODO_KINDS, type RepoFacts } from "../facts";
 import { DEFAULT_FILE, loadOnboarding, resolveFile } from "../load";
 import { renderOnboarding, tracksFor } from "../render";
@@ -21,6 +22,7 @@ import { serveBanner, type BannerInfo } from "./banner";
 import { AI_CLIS, detectAiCli, runAi } from "../ai";
 import { runMcpServer } from "../mcp";
 import { detectIntegrations, projectHealth } from "../health";
+import { highlights, projectSignals } from "../signals";
 import { applyDrift, onboardingStatus, statusPrompt, type StatusReport } from "../status";
 import { coverageBadge, coverageScore, validateOnboarding, type Issue } from "../validate";
 
@@ -345,7 +347,7 @@ function createRouteFile(root: string, framework: Framework, file?: string): str
   }
   mkdirSync(dirname(join(root, rel)), { recursive: true });
   writeFileSync(join(root, rel), source);
-  return [tr(tr(`${c.green("✓")} Criei ${c.bold(rel)} (rota /onboarding)`, `${c.green("✓")} Created ${c.bold(rel)} (/onboarding route)`), `${c.green("✓")} Created ${c.bold(rel)} (/onboarding route)`)];
+  return [tr(`${c.green("✓")} Criei ${c.bold(rel)} (rota /onboarding)`, `${c.green("✓")} Created ${c.bold(rel)} (/onboarding route)`)];
 }
 
 /** Comando para rodar um script do package.json no gerenciador do projeto. */
@@ -355,8 +357,14 @@ export function runScript(packageManager: string | undefined, name: string): str
 }
 
 /** Script `onboarding` no package.json: abre a apresentação em localhost:4321 em qualquer projeto, com ou sem servidor web. */
-export function addServeScript(root: string, packageManager?: string): string[] {
+export function addServeScript(root: string, packageManager?: string, framework?: Framework): string[] {
   const path = join(root, "package.json");
+  // em apps PHP o package.json só empacota assets: o script vai para o composer.json, e o kit roda por npx
+  if ((framework && isEcosystemFramework(framework)) || !existsSync(path)) {
+    if (existsSync(join(root, "composer.json"))) return addComposerScript(root);
+  }
+  if ((framework && isEcosystemFramework(framework)) || (!existsSync(path) && !existsSync(join(root, "deno.json")) && !existsSync(join(root, "deno.jsonc"))))
+    return [tr(`${c.dim("•")} Para ver a apresentação: ${c.bold("npx onboarding-kit serve")} ${c.dim("(precisa do Node.js instalado na máquina, não no projeto)")}`, `${c.dim("•")} To see the presentation: ${c.bold("npx onboarding-kit serve")} ${c.dim("(needs Node.js on the machine, not in the project)")}`)];
   if (!existsSync(path)) return [tr(`${c.dim("•")} Para ver a apresentação: ${c.bold("deno run -A npm:onboarding-kit serve")}`, `${c.dim("•")} To see the presentation: ${c.bold("deno run -A npm:onboarding-kit serve")}`)];
   const raw = readFileSync(path, "utf8");
   const pkg = JSON.parse(raw);
@@ -368,8 +376,81 @@ export function addServeScript(root: string, packageManager?: string): string[] 
   return [tr(`${c.green("✓")} Adicionei o script ${c.bold(run)} (abre a apresentação em http://localhost:4321)`, `${c.green("✓")} Added the ${c.bold(run)} script (opens the presentation at http://localhost:4321)`)];
 }
 
+/** Script `onboarding` no composer.json (PHP): `composer onboarding` abre a apresentação. */
+export function addComposerScript(root: string): string[] {
+  const path = join(root, "composer.json");
+  const raw = readFileSync(path, "utf8");
+  let composer: Record<string, any>;
+  try {
+    composer = JSON.parse(raw);
+  } catch {
+    return [tr(`${c.yellow("!")} Não consegui ler o composer.json. Para ver a apresentação: ${c.bold("npx onboarding-kit serve")}`, `${c.yellow("!")} Couldn't read composer.json. To see the presentation: ${c.bold("npx onboarding-kit serve")}`)];
+  }
+  if (composer.scripts?.onboarding) return [tr(`${c.dim("•")} O script ${c.bold("composer onboarding")} já existe no composer.json`, `${c.dim("•")} The ${c.bold("composer onboarding")} script already exists in composer.json`)];
+  // o Composer encerra scripts depois de 300 s; o servidor precisa ficar no ar
+  composer.scripts = { ...(composer.scripts ?? {}), onboarding: ["Composer\\Config::disableProcessTimeout", "npx onboarding-kit serve"] };
+  const indent = /^(\s+)"/m.exec(raw)?.[1] ?? "    ";
+  writeFileSync(path, JSON.stringify(composer, null, indent) + (raw.endsWith("\n") ? "\n" : ""));
+  return [tr(`${c.green("✓")} Adicionei o script ${c.bold("composer onboarding")} ao composer.json (abre a apresentação em http://localhost:4321)`, `${c.green("✓")} Added the ${c.bold("composer onboarding")} script to composer.json (opens the presentation at http://localhost:4321)`)];
+}
+
+/** Rota /onboarding em apps de outras linguagens: serve o HTML exportado, só no ambiente local. */
+const ECOSYSTEM_SNIPPETS: Partial<Record<Framework, string>> = {
+  laravel: `// routes/web.php
+if (app()->environment('local')) {
+    Route::get('/onboarding', fn () => response()->file(base_path('onboarding.html')));
+}`,
+  symfony: `// src/Controller/OnboardingController.php
+#[Route('/onboarding', env: 'dev')]
+public function onboarding(): BinaryFileResponse
+{
+    return new BinaryFileResponse($this->getParameter('kernel.project_dir').'/onboarding.html');
+}`,
+  django: `# urls.py
+from django.conf import settings
+from django.http import FileResponse
+if settings.DEBUG:
+    urlpatterns += [path("onboarding", lambda r: FileResponse(open(settings.BASE_DIR / "onboarding.html", "rb")))]`,
+  fastapi: `# main.py
+from fastapi.responses import FileResponse
+if os.getenv("ENV", "dev") == "dev":
+    app.get("/onboarding", include_in_schema=False)(lambda: FileResponse("onboarding.html"))`,
+  flask: `# app.py
+from flask import send_file
+if app.debug:
+    app.add_url_rule("/onboarding", "onboarding", lambda: send_file("../onboarding.html"))`,
+  rails: `# config/routes.rb
+if Rails.env.development?
+  get "/onboarding", to: proc { [200, { "content-type" => "text/html" }, [File.read(Rails.root.join("onboarding.html"))]] }
+end`,
+  spring: `// OnboardingController.java (com @Profile("dev"))
+@GetMapping(value = "/onboarding", produces = MediaType.TEXT_HTML_VALUE)
+public Resource onboarding() { return new FileSystemResource("onboarding.html"); }`,
+  aspnet: `// Program.cs
+if (app.Environment.IsDevelopment())
+    app.MapGet("/onboarding", () => Results.File(Path.GetFullPath("onboarding.html"), "text/html"));`,
+  gin: `// só em dev
+if gin.Mode() == gin.DebugMode {
+    r.StaticFile("/onboarding", "./onboarding.html")
+}`,
+};
+
+/** Apps de outras linguagens: a apresentação vem do script/serve ou do HTML exportado, servido só em dev. */
+function setupEcosystemRoute(framework: Framework): string[] {
+  const snippet = ECOSYSTEM_SNIPPETS[framework];
+  const lines = [
+    tr(
+      `${c.dim("•")} Para ter ${c.bold("/onboarding")} dentro do app, gere o HTML com ${c.bold("npx onboarding-kit export --out onboarding.html")} (de novo a cada atualização)`,
+      `${c.dim("•")} To have ${c.bold("/onboarding")} inside the app, build the HTML with ${c.bold("npx onboarding-kit export --out onboarding.html")} (again after each update)`,
+    ),
+  ];
+  if (snippet) lines.push(tr("  e sirva o arquivo só no ambiente local:", "  and serve the file only in the local environment:"), "", c.dim(snippet));
+  return lines;
+}
+
 /** `file`: caminho do onboarding.json visto da pasta do app (só em monorepos). */
 export function setupRoute(root: string, framework: Framework, file?: string): string[] {
+  if (isEcosystemFramework(framework)) return setupEcosystemRoute(framework);
   switch (framework) {
     case "next":
       return setupNext(root, file);
@@ -458,8 +539,15 @@ function askLanguage(): Promise<Lang> {
 async function cmdInit(flags: Args["flags"]): Promise<number> {
   const root = process.cwd();
   const { pkg, deno } = readProjectManifests(root);
-  if (!pkg && !deno) {
-    console.error(c.red(tr("✗ Não encontrei package.json nem deno.json. Rode o comando na raiz do projeto.", "✗ No package.json or deno.json found. Run the command at the project root.")));
+  if (!hasAnyManifest(root)) {
+    console.error(
+      c.red(
+        tr(
+          "✗ Não encontrei o manifesto do projeto (package.json, deno.json, composer.json, pyproject.toml, requirements.txt, Gemfile, go.mod, pom.xml, build.gradle ou *.csproj). Rode o comando na raiz do projeto.",
+          "✗ No project manifest found (package.json, deno.json, composer.json, pyproject.toml, requirements.txt, Gemfile, go.mod, pom.xml, build.gradle or *.csproj). Run the command at the project root.",
+        ),
+      ),
+    );
     return 1;
   }
 
@@ -468,7 +556,7 @@ async function cmdInit(flags: Args["flags"]): Promise<number> {
     console.error(c.red(tr(`✗ Framework inválido: ${forced}. Use um destes: ${FRAMEWORK_IDS.join(", ")}.`, `✗ Invalid framework: ${forced}. Use one of: ${FRAMEWORK_IDS.join(", ")}.`)));
     return 1;
   }
-  const framework = forced ?? detectFramework(pkg, deno);
+  const framework = forced ?? detectFrameworkAt(root, pkg, deno);
   const label = FRAMEWORKS.find((f) => f.id === framework)!.label;
   if (typeof flags.lang !== "string" && !process.env.ONBOARDING_KIT_LANG && !flags.ai && process.stdin.isTTY && process.stdout.isTTY && !process.env.CI && !(existsSync(resolveFile(typeof flags.file === "string" ? flags.file : undefined)) && !flags.force)) {
     const chosen = await askLanguage();
@@ -503,16 +591,16 @@ async function cmdInit(flags: Args["flags"]): Promise<number> {
   if (flags.route !== false && !flags["no-route"]) {
     const target = host ?? (forced ? undefined : pickRouteHost(framework, subprojects));
     if (target) lines.push(...setupMonorepoRoute(root, file, target, profile.packageManager, Boolean(host)));
-    else if (!subprojects.length || WEB_HOSTS.includes(framework)) lines.push(...setupRoute(root, framework));
+    else if (!subprojects.length || WEB_HOSTS.includes(framework) || isEcosystemFramework(framework)) lines.push(...setupRoute(root, framework));
   }
-  if (!flags["no-script"] && flags.script !== false) lines.push(...addServeScript(root, profile.packageManager));
+  if (!flags["no-script"] && flags.script !== false) lines.push(...addServeScript(root, profile.packageManager, framework));
 
   const prompt = aiPrompt(relFile);
   if (flags.ai) {
     console.log(`\n${lines.join("\n")}\n`);
     return askAi(flags.ai, prompt, flags);
   }
-  const serve = pkg && !flags["no-script"] ? runScript(profile.packageManager, "onboarding") : "npx onboarding-kit serve";
+  const serve = flags["no-script"] ? "npx onboarding-kit serve" : pkg && !isEcosystemFramework(framework) ? runScript(profile.packageManager, "onboarding") : existsSync(join(root, "composer.json")) ? "composer onboarding" : "npx onboarding-kit serve";
   console.log(
     tr(
       `
@@ -935,7 +1023,14 @@ export function formatFacts(f: RepoFacts): string {
   section(f.scope ? `${tr("Projeto", "Project")} ${f.scope}` : tr("Projeto", "Project"));
   const p = f.project;
   out.push(`  framework: ${p.frameworkLabel}${p.ui.length ? ` · UI: ${p.ui.join(", ")}` : ""}`);
-  out.push(`  ${p.language}${p.compileToJs.length ? ` + ${p.compileToJs.join(", ")}` : ""} · ${p.moduleSystem} · ${p.runtime}${p.packageManager ? ` · ${p.packageManager}` : ""}${p.monorepo ? ` · monorepo: ${p.monorepo}` : ""}`);
+  const backend = isEcosystemFramework(p.framework);
+  out.push(`  ${p.language}${p.compileToJs.length ? ` + ${p.compileToJs.join(", ")}` : ""}${backend ? "" : ` · ${p.moduleSystem} · ${p.runtime}`}${p.packageManager ? ` · ${p.packageManager}` : ""}${p.monorepo ? ` · monorepo: ${p.monorepo}` : ""}`);
+  for (const e of p.ecosystems) {
+    const deps = Object.keys(e.dependencies);
+    out.push(`  ${c.bold(e.language)} ${c.dim(`(${e.manifest}, ${e.packageManager})`)}: ${e.frameworkLabel} · ${deps.length} ${tr("dependências", "dependencies")}${deps.length ? ` ${c.dim(`(${deps.slice(0, 12).join(", ")}${deps.length > 12 ? ", …" : ""})`)}` : ""}`);
+    if (e.testTools.length || e.qualityTools.length) out.push(`    ${tr("testes", "tests")}: ${e.testTools.join(", ") || "-"} · ${tr("qualidade", "quality")}: ${e.qualityTools.join(", ") || "-"}`);
+    if (e.commands.length) out.push(`    ${tr("comandos", "commands")}: ${e.commands.map((cmd) => cmd.command).join(" · ")}`);
+  }
   if (f.languages.length) {
     const total = f.languages.reduce((sum, l) => sum + l.files, 0);
     out.push(tr("  linguagens: ", "  languages: ") + `${f.languages.map((l) => `${l.name} ${Math.round((l.files / total) * 100)}%`).join(", ")}`);
@@ -1009,6 +1104,22 @@ export function formatFacts(f: RepoFacts): string {
     out.push(`  ${tr("dependências", "dependencies")}: ${h.dependencies.total}${h.dependencies.restrictive.length ? ` · ${tr("licenças restritivas", "restrictive licenses")}: ${h.dependencies.restrictive.map((d) => `${d.name} (${d.license})`).join(", ")}` : ""} [${h.dependencies.level}]`);
     if (h.hotspots.length) out.push(`  ${tr("mais alterados (6 meses)", "most changed (6 months)")}: ${h.hotspots.map((x) => `${x.file} (${x.commits})`).join(", ")}`);
   }
+  if (f.signals) {
+    const s = f.signals;
+    const flagged = new Set(highlights(s).map((h) => h.id));
+    const mark = (id: string) => (flagged.has(id as never) ? c.yellow("! ") : "  ");
+    section(tr("Sinais (calculados; os 3 mais graves vão para a visão executiva)", "Signals (computed; the 3 most serious go to the executive view)"));
+    const hot = s.quadrant.slice(0, 5).map((q) => `${q.file} (${q.commits}× · ${q.lines} ${tr("linhas", "lines")})`);
+    if (hot.length) out.push(`${mark("quadrant")}${tr("mais alterados × tamanho", "most changed × size")}: ${hot.join(", ")}`);
+    const solo = s.ownership.filter((o) => o.share >= 0.8);
+    if (solo.length) out.push(`${mark("ownership")}${tr("uma pessoa faz ≥80% dos commits em", "one person makes ≥80% of the commits in")}: ${solo.slice(0, 6).map((o) => `${o.area} (${Math.round(o.share * 100)}%)`).join(", ")}`);
+    if (s.debtAge?.dated) out.push(`${mark("debtAge")}${tr(`idade dos TODO/FIXME: mediana ${s.debtAge.medianDays} dias, ${s.debtAge.overYear} com mais de 1 ano`, `TODO/FIXME age: median ${s.debtAge.medianDays} days, ${s.debtAge.overYear} older than a year`)}`);
+    out.push(`${mark("trend")}${tr("commits por semana (26)", "commits per week (26)")}: ${s.weeks.join(" ")}`);
+    if (s.coChange.length) out.push(`${mark("coChange")}${tr("mudam juntos", "change together")}: ${s.coChange.map((p) => `${p.a} ↔ ${p.b} (${p.together}×)`).join(", ")}`);
+    if (s.delivery.commits) out.push(`${mark("delivery")}${tr(`revert/hotfix em 6 meses: ${s.delivery.reverts}/${s.delivery.hotfixes} de ${s.delivery.commits} commits`, `revert/hotfix in 6 months: ${s.delivery.reverts}/${s.delivery.hotfixes} of ${s.delivery.commits} commits`)}`);
+    if (s.untested.length) out.push(`${mark("untested")}${tr("sem teste", "untested")}: ${s.untested.map((u) => `${u.area} (${u.source})`).join(", ")}`);
+    if (s.drift.length) out.push(`${mark("drift")}${tr("domínio importando infra", "domain importing infra")}: ${s.drift.slice(0, 5).map((d) => `${d.file}:${d.line}`).join(", ")}`);
+  }
   if (f.integrations?.length) {
     section(tr("Integrações e infraestrutura detectadas", "Detected integrations and infrastructure"));
     list(f.integrations.map((i) => `${i.name} ${c.dim(`[${i.category}] ← ${i.source}`)}`));
@@ -1061,7 +1172,7 @@ async function main(): Promise<number> {
           return 1;
         }
       }
-      const facts = { ...collectFacts(root, { project, people: Boolean(flags.people) }), health: projectHealth(root), integrations: detectIntegrations(root) };
+      const facts = { ...collectFacts(root, { project, people: Boolean(flags.people) }), health: projectHealth(root), integrations: detectIntegrations(root), signals: projectSignals(root) };
       console.log(flags.json ? JSON.stringify(facts, null, 2) : formatFacts(facts));
       return 0;
     }

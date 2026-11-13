@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readProjectManifests } from "./detect";
+import { detectEcosystems } from "./ecosystems";
 import { cachedMarkers, git, listRepoFiles, TODO_KINDS } from "./facts";
 
 /**
@@ -32,7 +33,8 @@ export interface Integration {
 
 const BOT = /\[bot\]|^dependabot|^renovate|^github-actions/i;
 const CODE = /\.([cm]?[jt]sx?|vue|svelte|astro|py|go|rb|java|kt|cs|php|rs)$/i;
-const TEST = /(\.|_)(test|spec)\.|(^|\/)(__tests__|tests?|e2e)\//i;
+/** Arquivos de teste em qualquer linguagem: foo.test.ts, test_foo.py, foo_test.go, FooTest.php, FooTests.cs, foo_spec.rb, pastas tests/ e spec/. */
+export const TEST = /(\.|_)(test|spec)\.|(^|\/)(__tests__|tests?|e2e|spec)\/|(^|\/)test_[^/]+\.py$|_test\.(py|go)$|Tests?\.(php|java|kt|cs)$|_spec\.rb$/i;
 
 function median(values: number[]): number | undefined {
   if (!values.length) return undefined;
@@ -94,6 +96,27 @@ function coverage(root: string): number | undefined {
   } catch {
     // sem relatório do istanbul/vitest
   }
+  // Cobertura (coverage.py, JaCoCo convertido, .NET coverlet) e Clover (PHPUnit)
+  for (const file of ["coverage.xml", "coverage/cobertura.xml", "coverage/coverage.cobertura.xml", "build/logs/cobertura.xml"]) {
+    const xml = (() => {
+      try {
+        return readFileSync(join(root, file), "utf8");
+      } catch {
+        return "";
+      }
+    })();
+    const rate = /<coverage[^>]*\sline-rate="([\d.]+)"/.exec(xml)?.[1];
+    if (rate) return Math.round(Number(rate) * 100);
+  }
+  for (const file of ["clover.xml", "coverage/clover.xml", "build/logs/clover.xml"]) {
+    try {
+      const xml = readFileSync(join(root, file), "utf8");
+      const m = /<project[\s\S]*?<metrics[^>]*\sstatements="(\d+)"[^>]*\scoveredstatements="(\d+)"/.exec(xml);
+      if (m && Number(m[1])) return Math.round((Number(m[2]) / Number(m[1])) * 100);
+    } catch {
+      // sem clover
+    }
+  }
   try {
     const lcov = readFileSync(join(root, "coverage", "lcov.info"), "utf8");
     const sum = (key: string) => [...lcov.matchAll(new RegExp(`^${key}:(\\d+)`, "gm"))].reduce((a, m) => a + Number(m[1]), 0);
@@ -120,8 +143,16 @@ function dependencies(root: string): Health["dependencies"] {
       // dependência não instalada
     }
   }
-  const level: Level = !pkg ? "unknown" : restrictive.length ? "risk" : names.length > 150 ? "attention" : "good";
-  return { level, total: names.length, restrictive };
+  // outras linguagens: contagem pelo manifesto; licenças só onde o lockfile traz (composer.lock)
+  let total = names.length;
+  const ecosystems = detectEcosystems(root);
+  for (const e of ecosystems) {
+    total += Object.keys(e.dependencies).length + Object.keys(e.devDependencies).length;
+    const direct = new Set(Object.keys(e.dependencies));
+    for (const l of e.licenses) if (direct.has(l.name) && RESTRICTIVE.test(l.license) && !/\b(MIT|Apache|BSD|ISC)\b/i.test(l.license)) restrictive.push(l);
+  }
+  const level: Level = !pkg && !ecosystems.length ? "unknown" : restrictive.length ? "risk" : total > 150 ? "attention" : "good";
+  return { level, total, restrictive };
 }
 
 function hotspots(root: string): Health["hotspots"] {
@@ -247,6 +278,58 @@ const FILES: [string, string, Integration["category"]][] = [
   ["compose.yaml", "Docker Compose", "hosting"],
 ];
 
+/** Pacotes de outras linguagens (Composer, PyPI, RubyGems, Go, Maven, NuGet). */
+const ECOSYSTEM_PACKAGES: [RegExp, string, Integration["category"]][] = [
+  [/^stripe\/|^stripe$|stripe-go|^com\.stripe:|^Stripe\.net$|^laravel\/cashier$/i, "Stripe", "payments"],
+  [/paypal/i, "PayPal", "payments"],
+  [/mercadopago|mercado-pago/i, "Mercado Pago", "payments"],
+  [/adyen/i, "Adyen", "payments"],
+  [/auth0/i, "Auth0", "auth"],
+  [/keycloak/i, "Keycloak", "auth"],
+  [/^laravel\/socialite$|^social-auth|^omniauth$|^django-allauth$|^authlib$/i, "Login social (OAuth)", "auth"],
+  [/firebase/i, "Firebase", "cloud"],
+  [/supabase/i, "Supabase", "data"],
+  [/^doctrine\/orm$/i, "Doctrine ORM", "data"],
+  [/^sqlalchemy$|^sqlmodel$/i, "SQLAlchemy", "data"],
+  [/^gorm\.io\/gorm$/i, "GORM", "data"],
+  [/hibernate|spring-boot-starter-data-jpa/i, "Hibernate / JPA", "data"],
+  [/^Microsoft\.EntityFrameworkCore/i, "Entity Framework Core", "data"],
+  [/psycopg|^asyncpg$|^pg$|jackc\/pgx|^github\.com\/lib\/pq$|^org\.postgresql:|^Npgsql/i, "PostgreSQL", "data"],
+  [/^mysqlclient$|^pymysql$|^mysql2$|go-sql-driver\/mysql|^com\.mysql:|^mysql:mysql-connector|^MySql(Connector|\.Data)/i, "MySQL", "data"],
+  [/mongo/i, "MongoDB", "data"],
+  [/^predis\/|^redis$|^redis-rails$|go-redis|^StackExchange\.Redis$|lettuce|jedis|^django-redis$/i, "Redis", "data"],
+  [/kafka/i, "Kafka", "messaging"],
+  [/amqp|^pika$|^bunny$|^RabbitMQ\.Client$/i, "RabbitMQ", "messaging"],
+  [/^celery$/i, "Celery", "messaging"],
+  [/^sidekiq$/i, "Sidekiq", "messaging"],
+  [/^laravel\/horizon$/i, "Laravel Horizon", "messaging"],
+  [/twilio/i, "Twilio", "messaging"],
+  [/slack/i, "Slack", "messaging"],
+  [/sentry/i, "Sentry", "observability"],
+  [/datadog|ddtrace|dd-trace/i, "Datadog", "observability"],
+  [/newrelic|new-relic/i, "New Relic", "observability"],
+  [/opentelemetry/i, "OpenTelemetry", "observability"],
+  [/posthog/i, "PostHog", "analytics"],
+  [/mixpanel/i, "Mixpanel", "analytics"],
+  [/segment/i, "Segment", "analytics"],
+  [/sendgrid/i, "SendGrid", "email"],
+  [/mailgun/i, "Mailgun", "email"],
+  [/postmark/i, "Postmark", "email"],
+  [/^aws\/aws-sdk-php|^boto3$|^aws-sdk|aws-sdk-go|^software\.amazon\.awssdk:|^AWSSDK\./i, "AWS", "cloud"],
+  [/^google\/cloud|^google-cloud-|^cloud\.google\.com\/go|^com\.google\.cloud:|^Google\.Cloud\./i, "Google Cloud", "cloud"],
+  [/azure/i, "Azure", "cloud"],
+  [/cloudinary/i, "Cloudinary", "storage"],
+  [/^league\/flysystem-aws-s3/i, "AWS S3", "storage"],
+  [/openai/i, "OpenAI", "ai"],
+  [/anthropic/i, "Anthropic", "ai"],
+  [/google-generativeai|google-genai|generative-ai-go/i, "Google Gemini", "ai"],
+  [/launchdarkly/i, "LaunchDarkly", "flags"],
+  [/unleash/i, "Unleash", "flags"],
+  [/elasticsearch|elastic\/|opensearch/i, "Elasticsearch", "search"],
+  [/algolia/i, "Algolia", "search"],
+  [/meilisearch/i, "Meilisearch", "search"],
+];
+
 const TERRAFORM: [RegExp, string][] = [
   [/provider\s+"aws"/, "AWS (Terraform)"],
   [/provider\s+"google"/, "Google Cloud (Terraform)"],
@@ -264,6 +347,12 @@ export function detectIntegrations(root: string): Integration[] {
   for (const dep of Object.keys({ ...(pkg?.dependencies ?? {}), ...(pkg?.optionalDependencies ?? {}) })) {
     const hit = PACKAGES.find(([re]) => re.test(dep));
     if (hit) add({ name: hit[1], category: hit[2], source: `package.json (${dep})` });
+  }
+  for (const e of detectEcosystems(root)) {
+    for (const dep of Object.keys(e.dependencies)) {
+      const hit = ECOSYSTEM_PACKAGES.find(([re]) => re.test(dep));
+      if (hit) add({ name: hit[1], category: hit[2], source: `${e.manifest} (${dep})` });
+    }
   }
   for (const [file, name, category] of FILES) if (existsSync(join(root, file))) add({ name, category, source: file });
   for (const dir of [".", "infra", "terraform", "deploy"]) {

@@ -33,3 +33,5 @@ export { projectHealth, detectIntegrations, type Health, type Integration, type 
 export { chapterOf } from "./history";
 export { tracksFor, MANAGEMENT_TRACK } from "./render";
 export { unmentionedSymbols } from "./validate";
+export { detectEcosystems, parseTomlLite, type Ecosystem, type EcosystemId } from "./ecosystems";
+export { projectSignals, highlights, type Signals, type Highlight, type SignalId } from "./signals";

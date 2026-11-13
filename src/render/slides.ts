@@ -1,5 +1,6 @@
 import type { MarkerScan } from "../facts";
 import type { Health, Integration, Level } from "../health";
+import { highlights, type Signals } from "../signals";
 import { filled, isBlank } from "../load";
 import type { OnboardingData } from "../types";
 import type { ChapterId, Copy } from "./copy";
@@ -25,6 +26,7 @@ export interface Ctx {
   /** Saúde e integrações calculadas do repositório (visão executiva). */
   health?: Health;
   integrations?: Integration[];
+  signals?: Signals;
 }
 
 type Builder = (ctx: Ctx) => Slide[];
@@ -641,8 +643,89 @@ const mission: Builder = (ctx) => {
 
 const fill = (template: string, values: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ""));
 
-function metricTile(label: string, value: string, detail: string, level: Level, t: Copy): string {
-  return `<div class="card metric" data-level="${level}"><span class="metric-label">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}<span class="level"><i></i>${escapeHtml(t.executive.levels[level])}</span></div>`;
+function metricTile(label: string, value: string, detail: string, level: Level, t: Copy, chart = ""): string {
+  return `<div class="card metric" data-level="${level}"><span class="metric-label">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}${chart}<span class="level"><i></i>${escapeHtml(t.executive.levels[level])}</span></div>`;
+}
+
+/** Minigráfico de linha (commits por semana). */
+function sparkline(values: number[], label: string): string {
+  const max = Math.max(1, ...values);
+  const w = 200;
+  const h = 36;
+  const step = w / Math.max(1, values.length - 1);
+  const points = values.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(label)}"><polygon points="0,${h} ${points} ${w},${h}"/><polyline points="${points}"/></svg>`;
+}
+
+/** Dispersão: tamanho do arquivo × quantas vezes mudou; o canto de cima à direita é o de risco. */
+function quadrantChart(points: Signals["quadrant"], t: Copy): string {
+  const w = 360;
+  const h = 100;
+  const maxX = Math.max(...points.map((p) => p.lines));
+  const maxY = Math.max(...points.map((p) => p.commits));
+  const x = (v: number) => 8 + Math.sqrt(v / maxX) * (w - 16);
+  const y = (v: number) => h - 8 - (v / maxY) * (h - 26);
+  const dots = points
+    .map((p) => `<circle cx="${x(p.lines).toFixed(1)}" cy="${y(p.commits).toFixed(1)}" r="4"${p.commits >= 6 && p.lines >= 250 ? ' class="hot"' : ""}><title>${escapeHtml(`${p.file} · ${p.commits} commits · ${p.lines} ${t.executive.signals.lines}`)}</title></circle>`)
+    .join("");
+  return `<svg class="quadrant" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeHtml(t.executive.signals.quadrant.title)}"><rect x="${x(250).toFixed(1)}" y="0" width="${(w - x(250)).toFixed(1)}" height="${y(6).toFixed(1)}" class="zone"/><line x1="8" y1="${h - 8}" x2="${w - 8}" y2="${h - 8}"/><line x1="8" y1="8" x2="8" y2="${h - 8}"/>${dots}<text x="${w - 8}" y="${h - 12}" text-anchor="end">${escapeHtml(t.executive.signals.lines)} →</text><text x="12" y="10">↑ commits</text></svg>`;
+}
+
+/** Cartões dos sinais que fogem do normal: só os 3 mais graves, para caber numa tela (o resto fica no facts). */
+function signalCards(ctx: Ctx): string[] {
+  const s = ctx.signals;
+  if (!s) return [];
+  const t = ctx.t.executive.signals;
+  const card = (severity: 1 | 2, title: string, body: string, viz = "") =>
+    `<div class="card signal" data-severity="${severity}"><span class="badge sev">${escapeHtml(t.severity[severity])}</span><h3>${escapeHtml(title)}</h3><p>${body}</p>${viz}</div>`;
+  const pct = (n: number) => Math.round(n * 100);
+  const list = (items: string[]) => `<ul class="signal-list">${items.join("")}</ul>`;
+  return highlights(s)
+    .slice(0, 3)
+    .map(({ id, severity }) => {
+      switch (id) {
+        case "quadrant": {
+          const hot = s.quadrant.filter((q) => q.commits >= 6 && q.lines >= 250).sort((a, b) => b.commits * b.lines - a.commits * a.lines);
+          return card(severity, t.quadrant.title, escapeHtml(fill(t.quadrant.body, { file: hot[0].file, n: hot[0].commits, lines: hot[0].lines })), quadrantChart(s.quadrant, ctx.t));
+        }
+        case "ownership": {
+          const solo = s.ownership.filter((o) => o.share >= 0.8 && o.commits >= 10).slice(0, 4);
+          return card(
+            severity,
+            t.ownership.title,
+            escapeHtml(t.ownership.body),
+            `<ol class="share-bars">${solo.map((o) => `<li><code>${escapeHtml(o.area)}</code><span class="hot-bar"><span style="width:${pct(o.share)}%"></span></span><small>${pct(o.share)}%</small></li>`).join("")}</ol>`,
+          );
+        }
+        case "debtAge": {
+          const d = s.debtAge!;
+          return card(
+            severity,
+            t.debtAge.title,
+            escapeHtml(fill(t.debtAge.body, { over: d.overYear, dated: d.dated, median: d.medianDays })),
+            d.oldest ? `<p class="signal-note">${escapeHtml(fill(t.debtAge.oldest, { days: d.oldest.days }))} <code>${escapeHtml(d.oldest.file)}</code></p>` : "",
+          );
+        }
+        case "trend": {
+          const last = s.weeks.slice(13).reduce((a, b) => a + b, 0);
+          const before = s.weeks.slice(0, 13).reduce((a, b) => a + b, 0);
+          return card(severity, t.trend.title, escapeHtml(fill(t.trend.body, { last, before })), sparkline(s.weeks, t.trend.title));
+        }
+        case "coChange":
+          return card(
+            severity,
+            t.coChange.title,
+            escapeHtml(t.coChange.body),
+            list(s.coChange.slice(0, 3).map((p) => `<li><code>${escapeHtml(p.a)}</code> ↔ <code>${escapeHtml(p.b)}</code> <small>${escapeHtml(fill(t.coChange.pair, { n: p.together }))}</small></li>`)),
+          );
+        case "delivery":
+          return card(severity, t.delivery.title, escapeHtml(fill(t.delivery.body, { pct: pct(s.delivery.ratio), r: s.delivery.reverts, h: s.delivery.hotfixes })));
+        case "untested":
+          return card(severity, t.untested.title, escapeHtml(t.untested.body), list(s.untested.map((u) => `<li><code>${escapeHtml(u.area)}</code> <small>${escapeHtml(fill(t.untested.files, { n: u.source }))}</small></li>`)));
+        case "drift":
+          return card(severity, t.drift.title, escapeHtml(t.drift.body), list(s.drift.slice(0, 3).map((d) => `<li><code>${escapeHtml(`${d.file}:${d.line}`)}</code></li>`)));
+      }
+    });
 }
 
 const executive: Builder = (ctx) => {
@@ -655,7 +738,7 @@ const executive: Builder = (ctx) => {
     const h = health;
     const tiles = [
       metricTile(m.releases, h.releases.last12m ? fill(m.releasesValue, { n: h.releases.last12m }) : m.releasesNone, h.releases.medianDays ? (h.releases.medianDays <= 1 ? m.releasesDaily : fill(m.releasesEvery, { d: h.releases.medianDays })) : h.releases.lastTag ?? "", h.releases.level, t),
-      metricTile(m.activity, fill(m.activityValue, { n: h.activity.perMonth }), "", h.activity.level, t),
+      metricTile(m.activity, fill(m.activityValue, { n: h.activity.perMonth }), "", h.activity.level, t, ctx.signals?.weeks.some((n) => n > 0) ? sparkline(ctx.signals.weeks, t.executive.signals.weekly) : ""),
       metricTile(m.knowledge, fill(m.knowledgeValue, { n: h.knowledge.people, total: h.knowledge.authors }), "", h.knowledge.level, t),
       metricTile(m.debt, fill(m.debtValue, { n: h.debt.markers, k: h.debt.perKloc }), "", h.debt.level, t),
       metricTile(m.tests, h.tests.coverage !== undefined ? fill(m.testsCoverage, { n: h.tests.coverage }) : fill(m.testsFiles, { t: h.tests.testFiles, s: h.tests.sourceFiles }), h.tests.coverage !== undefined ? fill(m.testsFiles, { t: h.tests.testFiles, s: h.tests.sourceFiles }) : "", h.tests.level, t),
@@ -663,6 +746,9 @@ const executive: Builder = (ctx) => {
     ];
     slides.push({ chapter: "executive", kind: "health", title: t.executive.title, html: `${head(ctx, "executive", t.executive.title, exec?.summary?.trim() || t.executive.lede)}<div class="metrics reveal">${tiles.join("")}</div>` });
   }
+
+  const signals = signalCards(ctx);
+  if (signals.length) slides.push({ chapter: "executive", kind: "signals", title: t.executive.signals.title, html: `${head(ctx, "executive", t.executive.signals.title, t.executive.signals.lede)}<div class="signals reveal">${signals.join("")}</div>` });
 
   // integrações: as detectadas, com o papel que a IA explicou, mais as que só a IA achou
   const notes = filled(exec?.integrations);

@@ -33,7 +33,7 @@ const CODE_EXT = new Set([
   ".css", ".scss", ".sass", ".less", ".html", ".sql", ".prisma", ".graphql", ".gql",
   ".sh", ".yml", ".yaml", ".toml", ".tf",
 ]);
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".output", ".svelte-kit", ".astro", ".angular", ".expo", ".docusaurus", ".react-router", "storybook-static", "coverage", ".turbo", ".vercel", ".netlify", ".cache", "vendor", "generated", "__generated__", "tmp", "ios/Pods", "Pods"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".output", ".svelte-kit", ".astro", ".angular", ".expo", ".docusaurus", ".react-router", "storybook-static", "coverage", ".turbo", ".vercel", ".netlify", ".cache", "vendor", "generated", "__generated__", "tmp", "ios/Pods", "Pods", "venv", ".venv", "__pycache__", ".mypy_cache", ".pytest_cache", ".tox", "target", ".gradle", "obj"]);
 const MAX_FILES = 4000;
 const MAX_BYTES = 400_000;
 /** Só conta o marcador quando ele está num comentário, em maiúsculas (evita "todo" em texto comum). */
@@ -222,6 +222,7 @@ export interface RepoFacts {
   /** Saúde do projeto e integrações, calculadas sem IA (para a visão executiva). */
   health?: import("./health").Health;
   integrations?: import("./health").Integration[];
+  signals?: import("./signals").Signals;
 }
 
 export interface PeopleFacts {
@@ -269,7 +270,7 @@ const FILE_GROUPS: [string, RegExp][] = [
   ["deploy", /^(fly\.toml|render\.yaml|railway\.(json|toml)|wrangler\.(toml|jsonc?)|eas\.json|Procfile|app\.yaml|amplify\.yml|serverless\.(yml|ts)|electron-builder\.(ya?ml|json)|forge\.config\.[cm]?[jt]s|capacitor\.config\.[jt]s|sst\.config\.ts)$/i],
   ["monorepo", /^(pnpm-workspace\.yaml|turbo\.json|nx\.json|lerna\.json|rush\.json|\.moon\/workspace\.yml)$/i],
 ];
-const TEST_FILE = /(\.|_)(test|spec|e2e-spec|cy)\.([cm]?[jt]sx?|coffee|res)$|(^|\/)(__tests__|tests?|e2e|cypress|playwright)\//i;
+const TEST_FILE = /(\.|_)(test|spec|e2e-spec|cy)\.([cm]?[jt]sx?|coffee|res)$|(^|\/)(__tests__|tests?|e2e|cypress|playwright|spec)\/|(^|\/)test_[^/]+\.py$|_test\.(py|go)$|Tests?\.(php|java|kt|cs)$|_spec\.rb$/i;
 const SOURCE_FILE = /\.([cm]?[jt]sx?|vue|svelte|astro|marko|gjs|gts|coffee|res|elm|purs|cljs|civet|imba|py|go|rb|java|kt|cs|php|rs)$/i;
 const TEST_FRAMEWORKS = [
   "jest", "vitest", "mocha", "ava", "tap", "uvu", "jasmine", "karma", "@web/test-runner",
@@ -356,7 +357,7 @@ export function collectFacts(root: string, options: CollectOptions = {}): RepoFa
     tests: {
       testFiles: tests.length,
       sourceFiles: code.length - tests.length,
-      frameworks: TEST_FRAMEWORKS.filter((f) => deps[f]),
+      frameworks: [...TEST_FRAMEWORKS.filter((f) => deps[f]), ...project.ecosystems.flatMap((e) => e.testTools)],
       colocated,
       inTestFolders: tests.length - colocated,
     },

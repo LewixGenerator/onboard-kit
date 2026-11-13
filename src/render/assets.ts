@@ -470,6 +470,27 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
 .metric small{color:var(--muted);font-size:.8rem}
 .metric .level{margin-top:auto;display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:700;color:var(--lv)}
 .metric .level i{width:8px;height:8px;border-radius:50%;background:var(--lv)}
+.spark{display:block;width:100%;height:36px;margin-top:4px}
+.spark polyline{fill:none;stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.spark polygon{fill:var(--accent);opacity:.12}
+.signals{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.signal{display:flex;flex-direction:column;gap:8px;--sv:hsl(38 90% 45%)}
+.signal[data-severity="2"]{--sv:hsl(4 70% 52%)}
+.signal .sev{align-self:flex-start;color:var(--sv);background:transparent;border:1px solid var(--sv)}
+.signal h3{margin:0}
+.signal p{margin:0}
+.signal code{font-size:.8rem;overflow-wrap:anywhere}
+.signal-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:.85rem}
+.signal-list small,.signal-note{color:var(--muted);font-size:.8rem}
+.share-bars{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.share-bars li{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:10px;align-items:center;font-size:.85rem}
+.share-bars small{color:var(--muted)}
+.quadrant{width:100%;height:100px}
+.quadrant line{stroke:var(--border)}
+.quadrant .zone{fill:hsl(4 70% 52%);opacity:.08}
+.quadrant circle{fill:var(--muted);opacity:.55}
+.quadrant circle.hot{fill:hsl(4 70% 52%);opacity:.95}
+.quadrant text{fill:var(--muted);font-size:10px}
 .integration .source{margin:6px 0 0;font-size:.75rem;color:var(--muted)}
 .risks{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
 .risk,.question{display:flex;gap:14px;align-items:flex-start}

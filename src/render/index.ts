@@ -10,6 +10,7 @@ import { CHAPTER_HUES, type ChapterId, type Copy, copyFor } from "./copy";
 import { escapeHtml, repoBase, text } from "./html";
 import { CHAPTERS, type Slide } from "./slides";
 import { detectIntegrations, projectHealth } from "../health";
+import { projectSignals } from "../signals";
 
 export { escapeHtml } from "./html";
 
@@ -314,10 +315,11 @@ export function renderOnboarding(data: OnboardingData, options: RenderOptions = 
   const wantsExecutive = !only.size || only.has("executive");
   const health = options.root && wantsExecutive ? projectHealth(options.root) : undefined;
   const integrations = options.root && wantsExecutive ? detectIntegrations(options.root) : undefined;
+  const signals = options.root && wantsExecutive ? projectSignals(options.root) : undefined;
   let num = 1;
   for (const [id, build] of CHAPTERS) {
     if (only.size && !only.has(id)) continue;
-    const slides = build({ data: view, t, num, markers, root: options.root, health, integrations });
+    const slides = build({ data: view, t, num, markers, root: options.root, health, integrations, signals });
     const review = data.reviews?.[id];
     if (slides.length && review?.by?.trim()) {
       const at = Date.parse(review.at) ? new Date(review.at).toLocaleDateString(lang, { day: "2-digit", month: "2-digit", year: "numeric" }) : review.at;

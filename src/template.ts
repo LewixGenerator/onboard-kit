@@ -46,6 +46,54 @@ const FRAMEWORK_HINTS: Record<Framework, string> = {
     "Projeto Electron. Separe o processo main, os preloads e o renderer (e o framework de UI do renderer), a comunicação IPC (ipcMain/ipcRenderer, contextBridge), acesso a arquivos e ao sistema, auto-update e o empacotamento (electron-builder, Forge).",
   library:
     "Biblioteca ou CLI publicada. Explique a API pública (exports do package.json, bin), como o código está organizado por trás dela, o build (tsc, tsup, rollup, unbuild), a matriz de compatibilidade (Node, ESM/CJS, browsers), o versionamento e o processo de release. Em 'business', explique quem consome a biblioteca e por quê.",
+  laravel:
+    "Projeto Laravel. Mapeie routes/ (web.php, api.php), controllers, Form Requests (validação), models do Eloquent com relacionamentos, scopes e casts, migrations e seeders, policies e gates, jobs e filas (Horizon), events/listeners, service providers e config/. As regras de negócio costumam estar em models, services/actions e Form Requests. Comandos úteis vêm do artisan e dos scripts do composer.json. O front pode ser Blade, Livewire, Inertia (Vue/React) ou uma SPA separada.",
+  symfony:
+    "Projeto Symfony. Mapeie src/Controller e as rotas (atributos #[Route] ou config/routes), entidades e repositórios do Doctrine, migrations, services e a injeção de dependência (config/services.yaml), Messenger (filas), eventos/subscribers, security.yaml (firewalls, voters) e os bundles em config/bundles.php. Comandos: bin/console.",
+  wordpress:
+    "Projeto WordPress. Separe o core das partes do time: temas (wp-content/themes) e plugins próprios (wp-content/plugins), hooks (add_action/add_filter), custom post types e taxonomias, campos (ACF), blocos do Gutenberg, a REST API customizada, WooCommerce se houver, e como o deploy e o banco funcionam (wp-config.php, sem segredos). Ignore plugins de terceiros que não foram alterados.",
+  drupal:
+    "Projeto Drupal. Mapeie os módulos customizados (web/modules/custom) e temas (web/themes/custom), rotas (*.routing.yml), controllers, serviços (*.services.yml), hooks, entidades e campos, a configuração exportada (config/sync) e o Drush.",
+  magento:
+    "Projeto Magento / Adobe Commerce. Mapeie os módulos próprios (app/code/<Vendor>), di.xml (preferências e plugins/interceptors), observers e eventos, controllers e rotas, a camada de serviço (Api/ e Model/), setup patches, temas (app/design) e os comandos bin/magento.",
+  codeigniter:
+    "Projeto CodeIgniter 4. Mapeie app/Config/Routes.php, controllers, models, filters, validação, migrations e as views. Comandos: php spark.",
+  slim:
+    "Projeto Slim. Mapeie o bootstrap do app, rotas e grupos, middlewares, o container de dependências e onde ficam as regras de negócio e o acesso a dados.",
+  php:
+    "Projeto PHP. Identifique o ponto de entrada (public/index.php ou similar), o autoload do composer.json (PSR-4), a organização de pastas, as rotas, o acesso a dados e onde estão as regras de negócio.",
+  django:
+    "Projeto Django. Mapeie os apps (INSTALLED_APPS em settings), urls.py, views (funções, classes ou DRF ViewSets e serializers), models com relacionamentos e managers, migrations, signals, admin, tarefas (Celery) e settings por ambiente. Comandos: python manage.py.",
+  fastapi:
+    "Projeto FastAPI. Mapeie o app e os routers (APIRouter), os schemas Pydantic, dependências (Depends: auth, sessão de banco), o acesso a dados (SQLAlchemy, SQLModel, Tortoise), tarefas em background, middlewares e a configuração (pydantic-settings).",
+  flask:
+    "Projeto Flask. Mapeie a criação do app (app factory), blueprints e rotas, extensões (SQLAlchemy, Migrate, Login), models, templates Jinja, configuração por ambiente e tarefas (Celery).",
+  python:
+    "Projeto Python. Identifique o ponto de entrada (scripts do pyproject, __main__.py, CLI), a organização dos pacotes, o gerenciador (uv, Poetry, pip), o acesso a dados e onde estão as regras de negócio.",
+  rails:
+    "Projeto Ruby on Rails. Mapeie config/routes.rb, controllers, models do ActiveRecord (associações, validações, callbacks, scopes), migrations e db/schema.rb, jobs (Sidekiq/ActiveJob), mailers, concerns, service objects e o front (Hotwire/Turbo, Stimulus, jsbundling). Comandos: bin/rails.",
+  sinatra:
+    "Projeto Sinatra. Mapeie as rotas, helpers, filtros, o acesso a dados e como o app é montado (config.ru).",
+  ruby:
+    "Projeto Ruby. Identifique o ponto de entrada (bin/, Rakefile, gemspec), a organização de lib/, as gems principais e onde estão as regras de negócio.",
+  gin:
+    "Projeto Go com Gin. Mapeie cmd/ (pontos de entrada), o router e os grupos de rotas, handlers, middlewares, a camada de serviço e de repositório (internal/), os modelos e o acesso a dados (database/sql, sqlx, GORM), a configuração e o tratamento de erros.",
+  echo:
+    "Projeto Go com Echo. Mapeie cmd/, as rotas e grupos, handlers, middlewares, internal/ (serviços e repositórios), o acesso a dados e a configuração.",
+  fiber:
+    "Projeto Go com Fiber. Mapeie cmd/, as rotas e grupos, handlers, middlewares, internal/ (serviços e repositórios), o acesso a dados e a configuração.",
+  go:
+    "Projeto Go. Mapeie cmd/ (cada binário), internal/ e pkg/, as interfaces que separam as camadas, o servidor HTTP/gRPC, o acesso a dados, a configuração e como os erros são tratados. Comandos: go run, go test ./...",
+  spring:
+    "Projeto Spring Boot. Mapeie os pacotes por camada ou por domínio, controllers (@RestController), services, repositórios (Spring Data JPA), entidades, DTOs e mapeadores, configuração (application.yml por perfil), segurança (Spring Security), mensageria e migrations (Flyway/Liquibase). Comandos: mvnw ou gradlew.",
+  quarkus:
+    "Projeto Quarkus. Mapeie os resources (JAX-RS), services, entidades Panache, configuração (application.properties por perfil), extensões usadas e o modo dev (quarkus:dev).",
+  java:
+    "Projeto Java/Kotlin. Identifique o ponto de entrada (main), os módulos do Maven/Gradle, a organização dos pacotes, o acesso a dados e onde estão as regras de negócio.",
+  aspnet:
+    "Projeto ASP.NET Core. Mapeie Program.cs (serviços, middlewares, autenticação), controllers ou Minimal APIs, a camada de aplicação e de domínio, o Entity Framework Core (DbContext, migrations), configuração (appsettings por ambiente) e os projetos da solução (.sln) e suas referências.",
+  dotnet:
+    "Projeto .NET. Mapeie a solução (.sln) e os projetos, as referências entre eles, o ponto de entrada, o acesso a dados e onde estão as regras de negócio. Comandos: dotnet build, dotnet test.",
   node:
     "Projeto Node.js. Identifique o ponto de entrada (main e scripts do package.json), o framework HTTP (Express, Fastify, Koa ou http nativo), a organização de rotas e middlewares, o acesso a dados, jobs/workers e scripts utilitários.",
 };
@@ -92,7 +140,7 @@ const SECTION_INSTRUCTIONS = {
   people:
     "Só preencha se esta seção existir no arquivo (o time pediu com `init --people`). Use `npx onboarding-kit facts --people`, que lista o CODEOWNERS e quem mais fez commits em cada área no último ano. Até 8 pessoas. name; role só se estiver documentado; areas: pastas ou subprojetos que a pessoa conhece; contact: canal do time ou @usuario do GitHub. NUNCA inclua e-mail, telefone ou dados pessoais.",
   executive:
-    "Visão para P.O. e CTO. Os números (releases, atividade, concentração de conhecimento, dívida, testes, dependências, arquivos mais alterados) e as integrações detectadas o kit calcula sozinho e mostra em `npx onboarding-kit facts`: não copie números para cá. summary: 2 ou 3 frases sobre em que pé o projeto está (maturidade, foco atual, o que preocupa), com base nesses fatos. risks: até 3 riscos reais para o negócio ou para o time (ex.: conhecimento concentrado numa pessoa, integração crítica sem teste, dependência descontinuada), cada um com evidence. integrations: para cada serviço externo que importa (os detectados e os que você achar no código), name igual ao detectado e role em uma frase (para que o projeto usa), com evidence. Não fale de prazos, roadmap ou métricas de negócio que não estejam no repositório.",
+    "Visão para P.O. e CTO. Os números (releases, atividade, concentração de conhecimento, dívida, testes, dependências, arquivos mais alterados), os sinais (arquivos grandes que mudam muito, dívida antiga, acoplamento escondido...) e as integrações detectadas o kit calcula sozinho e mostra em `npx onboarding-kit facts`: não copie números para cá. summary: 2 ou 3 frases sobre em que pé o projeto está (maturidade, foco atual, o que preocupa), com base nesses fatos. risks: até 3 riscos reais para o negócio ou para o time (ex.: conhecimento concentrado numa pessoa, integração crítica sem teste, dependência descontinuada), cada um com evidence. integrations: para cada serviço externo que importa (os detectados e os que você achar no código), name igual ao detectado e role em uma frase (para que o projeto usa), com evidence. Não fale de prazos, roadmap ou métricas de negócio que não estejam no repositório.",
   openQuestions:
     "Até 6 perguntas que o código não responde e que alguém novo deveria fazer ao time (ex.: 'Qual o SLA do checkout?', 'Por que existem dois clientes HTTP?'). why: o que você viu que levantou a dúvida. Use esta seção em vez de chutar: quando não der para comprovar algo, pergunte.",
   firstTasks:

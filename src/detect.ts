@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { detectEcosystems, ECOSYSTEM_FRAMEWORKS, type Ecosystem } from "./ecosystems";
 import type { Framework } from "./types";
 
 /* ───────────────────────── frameworks ───────────────────────── */
@@ -26,6 +27,7 @@ export const FRAMEWORKS: { id: Framework; label: string }[] = [
   { id: "electron", label: "Electron" },
   { id: "library", label: "Biblioteca / CLI" },
   { id: "node", label: "Node.js" },
+  ...ECOSYSTEM_FRAMEWORKS,
 ];
 
 export const FRAMEWORK_IDS = FRAMEWORKS.map((f) => f.id);
@@ -74,6 +76,19 @@ export function detectFramework(pkg: Pkg, deno?: Record<string, any>): Framework
   return "node";
 }
 
+/** JavaScript que só empacota assets (Vite, Webpack) ou nem existe: o framework do backend é quem manda (Laravel + Vite, Rails + esbuild). */
+const ASSETS_ONLY: Framework[] = ["vite", "webpack", "node", "library"];
+
+/** Framework da pasta, olhando JavaScript e as outras linguagens. */
+export function detectFrameworkAt(root: string, pkg = readProjectManifests(root).pkg, deno = readProjectManifests(root).deno, ecosystems = detectEcosystems(root)): Framework {
+  const js = pkg || deno ? detectFramework(pkg, deno) : undefined;
+  if (js && !ASSETS_ONLY.includes(js)) return js;
+  return ecosystems[0]?.framework ?? js ?? "node";
+}
+
+/** O framework é de outra linguagem (PHP, Python...)? */
+export const isEcosystemFramework = (framework: Framework) => ECOSYSTEM_FRAMEWORKS.some((f) => f.id === framework);
+
 /* ───────────────────────── perfil do projeto ───────────────────────── */
 
 export interface ProjectProfile {
@@ -81,13 +96,17 @@ export interface ProjectProfile {
   frameworkLabel: string;
   /** Bibliotecas de interface: React, Vue, Svelte... */
   ui: string[];
-  language: "TypeScript" | "JavaScript";
+  /** Linguagem principal: TypeScript/JavaScript ou a do backend (PHP, Python...). */
+  language: string;
   /** Outras linguagens que compilam para JS e aparecem na configuração (ReScript, Elm...). */
   compileToJs: string[];
-  runtime: "Node.js" | "Bun" | "Deno";
+  /** Node.js, Bun ou Deno; em projetos de outra linguagem, a própria linguagem (PHP, Python...). */
+  runtime: string;
   packageManager?: string;
   moduleSystem: "ESM" | "CommonJS";
   monorepo?: string;
+  /** Manifestos de outras linguagens nesta pasta (composer.json, pyproject.toml, Gemfile, go.mod, pom.xml, *.csproj). */
+  ecosystems: Ecosystem[];
   /** Projetos dentro do repositório (pacotes do workspace ou pastas com package.json/deno.json próprio). */
   subprojects: Subproject[];
 }
@@ -154,7 +173,9 @@ export function detectProject(root: string): ProjectProfile {
   const { pkg, deno } = readProjectManifests(root);
   const deps = dependencyNames(pkg, deno);
   const has = (file: string) => existsSync(join(root, file));
-  const framework = detectFramework(pkg, deno);
+  const ecosystems = detectEcosystems(root);
+  const framework = detectFrameworkAt(root, pkg, deno, ecosystems);
+  const backend = isEcosystemFramework(framework) ? ecosystems.find((e) => e.framework === framework) : undefined;
 
   const lockfiles: [string, string][] = [
     ["pnpm-lock.yaml", "pnpm"],
@@ -164,7 +185,8 @@ export function detectProject(root: string): ProjectProfile {
     ["package-lock.json", "npm"],
     ["deno.lock", "deno"],
   ];
-  const packageManager = (typeof pkg?.packageManager === "string" ? pkg.packageManager.split("@")[0] : undefined) ?? lockfiles.find(([f]) => has(f))?.[1];
+  const jsPackageManager = (typeof pkg?.packageManager === "string" ? pkg.packageManager.split("@")[0] : undefined) ?? lockfiles.find(([f]) => has(f))?.[1];
+  const packageManager = backend ? backend.packageManager : jsPackageManager;
 
   const monorepoTools = [
     has("turbo.json") && "Turborepo",
@@ -172,7 +194,7 @@ export function detectProject(root: string): ProjectProfile {
     has("lerna.json") && "Lerna",
     has("rush.json") && "Rush",
     has("pnpm-workspace.yaml") && "pnpm workspaces",
-    pkg?.workspaces && `${packageManager === "yarn" ? "Yarn" : packageManager === "bun" ? "Bun" : "npm"} workspaces`,
+    pkg?.workspaces && `${jsPackageManager === "yarn" ? "Yarn" : jsPackageManager === "bun" ? "Bun" : "npm"} workspaces`,
     deno?.workspace && "Deno workspace",
   ].filter(Boolean) as string[];
   const subprojects = detectSubprojects(root);
@@ -182,12 +204,13 @@ export function detectProject(root: string): ProjectProfile {
     framework,
     frameworkLabel: FRAMEWORKS.find((f) => f.id === framework)!.label,
     ui: UI_LIBS.filter(([, names]) => names.some((n) => deps[n])).map(([label]) => label),
-    language: has("tsconfig.json") || deps.typescript || deno ? "TypeScript" : "JavaScript",
+    language: backend?.language ?? (has("tsconfig.json") || deps.typescript || deno ? "TypeScript" : "JavaScript"),
     compileToJs: COMPILE_TO_JS.filter(([, names, files]) => names.some((n) => deps[n]) || files.some(has)).map(([label]) => label),
-    runtime: deno && !pkg ? "Deno" : has("bun.lock") || has("bun.lockb") || has("bunfig.toml") || deps["@types/bun"] ? "Bun" : "Node.js",
+    runtime: backend ? backend.language : deno && !pkg ? "Deno" : has("bun.lock") || has("bun.lockb") || has("bunfig.toml") || deps["@types/bun"] ? "Bun" : "Node.js",
     packageManager,
     moduleSystem: pkg?.type === "module" || (deno && !pkg) ? "ESM" : "CommonJS",
     monorepo: monorepoTools.length ? monorepoTools.join(", ") : undefined,
+    ecosystems,
     subprojects,
   };
 }
@@ -201,7 +224,7 @@ export function findSubproject(subprojects: Subproject[], ref: string): Subproje
 }
 
 /** Pastas que nunca são subprojetos (dependências, saídas de build, fixtures de teste). */
-const NOT_PROJECT_DIRS = new Set(["node_modules", "dist", "build", "out", "coverage", "vendor", "tmp", "fixtures", "__fixtures__", "__mocks__", "bower_components", "jspm_packages"]);
+const NOT_PROJECT_DIRS = new Set(["node_modules", "dist", "build", "out", "coverage", "vendor", "tmp", "fixtures", "__fixtures__", "__mocks__", "bower_components", "jspm_packages", "venv", "env", "__pycache__", "target", "bin", "obj", "storage"]);
 const MAX_SUBPROJECTS = 60;
 
 function subdirs(root: string, dir: string): string[] {
@@ -287,7 +310,16 @@ export function workspacePatterns(root: string): string[] {
   ].filter((p): p is string => typeof p === "string" && p.trim() !== "");
 }
 
-const hasManifest = (root: string, dir: string) => ["package.json", "deno.json", "deno.jsonc"].some((f) => existsSync(join(root, dir, f)));
+/** Arquivos que marcam a raiz de um projeto, em qualquer linguagem que o kit entende. */
+const MANIFESTS = ["package.json", "deno.json", "deno.jsonc", "composer.json", "pyproject.toml", "requirements.txt", "Gemfile", "go.mod", "pom.xml", "build.gradle", "build.gradle.kts"];
+const hasManifest = (root: string, dir: string) => {
+  if (MANIFESTS.some((f) => existsSync(join(root, dir, f)))) return true;
+  try {
+    return readdirSync(join(root, dir)).some((f) => /\.(cs|fs)proj$/.test(f));
+  } catch {
+    return false;
+  }
+};
 
 /** Sem workspace declarado: procura package.json/deno.json até dois níveis abaixo da raiz (ex.: frontend/ + backend/). */
 function looseProjectDirs(root: string): string[] {
@@ -301,6 +333,10 @@ function looseProjectDirs(root: string): string[] {
   }
   return found;
 }
+
+/** Ids que são só a linguagem, sem framework web: biblioteca ou script até prova em contrário. */
+const BARE_LANGUAGES: Framework[] = ["php", "python", "ruby", "go", "java", "dotnet"];
+const composerName = (dir: string): string | undefined => readJson(join(dir, "composer.json"))?.name;
 
 /**
  * Subprojetos do repositório. Usa os workspaces declarados (npm/Yarn/Bun/pnpm, Lerna, Rush, Deno)
@@ -319,16 +355,17 @@ export function detectSubprojects(root: string): Subproject[] {
 
   const projects = dirs.slice(0, MAX_SUBPROJECTS).map((path) => {
     const { pkg, deno } = readProjectManifests(join(root, path));
-    const deps = dependencyNames(pkg, deno);
-    const framework = detectFramework(pkg, deno);
-    const runnable = Boolean(pkg?.scripts?.start || pkg?.scripts?.dev || deno?.tasks?.start || deno?.tasks?.dev);
+    const ecosystems = pkg || deno ? [] : detectEcosystems(join(root, path));
+    const deps = { ...dependencyNames(pkg, deno), ...Object.fromEntries(ecosystems.flatMap((e) => Object.entries(e.dependencies))) };
+    const framework = detectFrameworkAt(join(root, path), pkg, deno, ecosystems);
+    const runnable = Boolean(pkg?.scripts?.start || pkg?.scripts?.dev || deno?.tasks?.start || deno?.tasks?.dev) || (isEcosystemFramework(framework) && !BARE_LANGUAGES.includes(framework)) || existsSync(join(root, path, "main.go"));
     return {
-      name: String(pkg?.name ?? deno?.name ?? path.split("/").pop()),
+      name: String(pkg?.name ?? deno?.name ?? composerName(join(root, path)) ?? path.split("/").pop()),
       path,
       framework,
       frameworkLabel: FRAMEWORKS.find((f) => f.id === framework)!.label,
       ui: UI_LIBS.filter(([, names]) => names.some((n) => deps[n])).map(([label]) => label),
-      kind: framework === "library" || (framework === "node" && !runnable) ? "package" : "app",
+      kind: framework === "library" || ((framework === "node" || BARE_LANGUAGES.includes(framework)) && !runnable) ? "package" : "app",
       private: Boolean(pkg?.private),
       deps,
     } as Subproject & { deps: Record<string, string> };

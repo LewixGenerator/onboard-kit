@@ -56,7 +56,7 @@ test("CLI init: Nuxt, SvelteKit, Vite, CRA e projetos sem servidor", () => {
   assert.match(denoOut, /Hono/);
   assert.match(denoOut, /onboarding-kit\/fetch/);
 
-  assert.throws(() => execFileSync("node", [CLI, "init", "--framework", "rails"], { cwd: deno, stdio: "pipe" }));
+  assert.throws(() => execFileSync("node", [CLI, "init", "--framework", "cobol"], { cwd: deno, stdio: "pipe" }));
 });
 
 test("CLI init e facts mostram os subprojetos", () => {
