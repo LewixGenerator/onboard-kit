@@ -405,6 +405,7 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
   .topbar{padding:12px 16px;gap:8px}
   .brand-name{display:none}
   .topbar .icon-btn{width:36px;height:36px;border-radius:10px}
+  .langs a{padding:6px 7px}
   .segments{gap:3px}
   .seg{min-width:4px}
   .brand:not(:has(img)){display:none}
@@ -426,6 +427,7 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
   .topbar{gap:6px;padding:10px 12px}
   .segments{gap:2px}
   .seg{min-width:3px}
+  .langs a{padding:5px 6px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 /* busca (Ctrl/Cmd+K) */
@@ -458,6 +460,12 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
 .track{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-radius:14px;background:var(--surface);border:1px solid var(--border);color:var(--text);text-decoration:none;max-width:260px;text-align:left;transition:border-color .2s}
 .track:hover,.track:focus-visible{border-color:var(--accent)}
 .track span{color:var(--muted);font-size:.85rem}
+.langs{flex:none;display:flex;padding:3px;border-radius:12px;border:1px solid var(--border);background:var(--surface)}
+.langs a{padding:6px 9px;border-radius:9px;font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--muted);text-decoration:none;transition:color .2s,background .2s}
+.langs a:hover{color:var(--text)}
+.langs a[aria-current]{background:var(--text);color:var(--bg)}
+.untranslated{max-width:46ch;margin:18px auto 0;font-size:.8rem;color:var(--muted);text-align:center}
+.untranslated code{white-space:nowrap}
 .track-now{display:flex;gap:12px;align-items:center;justify-content:center;margin-top:18px}
 .track-now a{color:var(--accent);font-weight:700}
 /* impressão / PDF: um slide por página, sem navegação nem animações */
@@ -465,7 +473,7 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
   @page{size:A4 landscape;margin:10mm}
   html,body{height:auto;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   *,*::before,*::after{animation:none!important;transition:none!important}
-  .backdrop,.topbar,.controls,.overview,.toast,.wipe,.confetti,.search,.sheet,.tracks,.track-now,.copy,.copy-cta,.cta,.ghost,.nav-btn,.icon-btn,.hint{display:none!important}
+  .backdrop,.topbar,.controls,.overview,.toast,.wipe,.confetti,.search,.sheet,.tracks,.track-now,.langs,.untranslated,.copy,.copy-cta,.cta,.ghost,.nav-btn,.icon-btn,.hint{display:none!important}
   .deck{position:static;display:block}
   .stage{overflow:visible}
   .slide{position:relative;inset:auto;opacity:1!important;visibility:visible!important;transform:none!important;filter:none!important;min-height:180mm;break-after:page;break-inside:avoid}

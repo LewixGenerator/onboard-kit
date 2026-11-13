@@ -9,6 +9,8 @@ import { createTemplate } from "./template";
 import type { OnboardingData } from "./types";
 import { coverageScore, validateOnboarding } from "./validate";
 import { VERSION } from "./version";
+import { parseLang } from "./i18n";
+import { addTranslations, pendingStrings, readTranslation, todoInstructions, translationFile } from "./translate";
 
 /**
  * Servidor MCP (stdio) do onboarding-kit: a IA chama facts, status e validate como ferramentas
@@ -88,6 +90,31 @@ export function mcpTools(file = resolveFile()): Tool[] {
         const applied = applyDrift(data, report.drift);
         if (applied) writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
         return { applied, drift: report.drift };
+      },
+    },
+    {
+      name: "onboarding_translate",
+      description:
+        "Tradução incremental do conteúdo (ex.: para inglês). Sem `translations`, devolve só os textos que faltam traduzir, por caminho. Com `translations` ({caminho: texto traduzido}), guarda e devolve o que ainda falta. Não precisa ler o repositório.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          to: { type: "string", enum: ["en", "pt"], description: "Idioma de destino." },
+          translations: { type: "object", additionalProperties: { type: "string" }, description: "Textos traduzidos, com as mesmas chaves recebidas." },
+        },
+        required: ["to"],
+      },
+      run({ to, translations }) {
+        const data = readData(file);
+        const lang = parseLang(typeof to === "string" ? to : undefined) ?? "en";
+        let translation = readTranslation(file, lang);
+        let added = 0;
+        if (translations && typeof translations === "object") {
+          ({ translation, added } = addTranslations(data, translation, lang, translations as Record<string, unknown>));
+          writeFileSync(translationFile(file, lang), JSON.stringify(translation, null, 2) + "\n");
+        }
+        const pending = pendingStrings(data, translation);
+        return { added, remaining: Object.keys(pending).length, instructions: todoInstructions(lang), pending };
       },
     },
     {

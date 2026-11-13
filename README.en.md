@@ -46,6 +46,8 @@ npx onboarding-kit init --lang en
 
 In every case `init` also adds an `onboarding` script to `package.json` (`npm run onboarding`, `pnpm onboarding`…) that opens the presentation at `localhost:4321` without starting the app. Use `--no-script` to skip it.
 
+In a terminal, `init` asks which language you want (Enter = Portuguese); `--lang en` skips the question.
+
 If detection is wrong, force it with `--framework <id>` (`next`, `nuxt`, `sveltekit`, `astro`, `remix`, `gatsby`, `nest`, `adonis`, `express`, `fastify`, `koa`, `hono`, `elysia`, `angular`, `vite`, `cra`, `webpack`, `react-native`, `electron`, `library`, `node`).
 
 Then send this to your AI:
@@ -66,11 +68,12 @@ Open `/onboarding` with the app running in dev, or run `npx onboarding-kit serve
 | `validate` | Checks required fields, leftover template items, whether evidence exists, secrets, text too long for a slide, duplicates, common Mermaid mistakes, forgotten subprojects. Prints a coverage score. `--ci`, `--strict`, `--min-score <n>`, `--badge <file>` |
 | `status` | Compares the code with the commit the onboarding was generated from: outdated items, deleted evidence, new uncovered files and reader feedback, plus a prompt for the AI. `--fix` fixes evidence that only moved; `--ai` sends the prompt to the installed AI |
 | `agents` | Teaches your AI to keep the onboarding up to date (`AGENTS.md`, `CLAUDE.md`, Copilot instructions, Cursor rule, Claude Code `/onboarding` command) |
-| `mcp` | MCP server (stdio) with `onboarding_facts`, `onboarding_status`, `onboarding_validate` and more |
+| `mcp` | MCP server (stdio) with `onboarding_facts`, `onboarding_status`, `onboarding_validate`, `onboarding_translate` and more |
 | `serve` | Opens the presentation at `http://localhost:4321` (`--port`). Shows the project, deck stats, coverage and tracks, and logs each time the AI writes `onboarding.json` |
-| `export` | Builds one static HTML file (`--out`, default `onboarding.html`). `--offline` embeds Mermaid and fonts; each track becomes its own file (`onboarding.frontend.html`) |
+| `translate` | Translates the onboarding without rereading the code: `--to en` writes only the new or changed texts to `onboarding.en.todo.json`, the AI translates that file, and the next `translate` stores the result in `onboarding.en.json`. `--ai` runs it all with the installed AI |
+| `export` | Builds one static HTML file (`--out`, default `onboarding.html`). `--offline` embeds Mermaid and fonts; each track and each translated language becomes its own file (`onboarding.frontend.html`, `onboarding.en.html`) |
 
-CLI messages follow the system language (Portuguese or English). Set `ONBOARDING_KIT_LANG=en` or `pt` to choose.
+CLI messages and generated content default to Portuguese. For English, use `init --lang en` or set `ONBOARDING_KIT_LANG=en`.
 
 ## Keeping it up to date
 
@@ -122,7 +125,8 @@ claude mcp add onboarding-kit -- npx onboarding-kit mcp
 - **Confusing?** Each slide has a feedback button. Comments go to `onboarding-feedback.json`, and `status` hands them to the AI. Disable with `feedback: false`.
 - **Who to ask:** opt-in with `init --people`. Name, role and channel only; `validate` rejects e-mails and phone numbers.
 - Brand colors and logo are picked up from Tailwind, CSS variables, theme files and `public/`.
-- The presentation speaks English, Portuguese and Spanish, following `meta.language`.
+- The presentation UI speaks English, Portuguese and Spanish, following `meta.language`.
+- **Portuguese or English:** the PT | EN switcher in the top bar changes the language (`/onboarding?lang=en`). Translated texts come from `translate`; anything missing stays in the original, with a notice and the command to run. Translation is incremental, so the AI only translates what changed.
 
 ## Monorepos
 

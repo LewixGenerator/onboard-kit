@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import { loadOnboarding } from "./load";
 import { renderErrorPage, renderMissingPage, renderOnboarding } from "./render";
+import { localize } from "./translate";
 
 export interface RenderedPage {
   status: number;
@@ -10,6 +11,8 @@ export interface RenderedPage {
 export interface PageOptions {
   /** Trilha escolhida (?trilha=frontend). */
   track?: string;
+  /** Idioma pedido (?lang=en). Sem tradução, a interface muda e o conteúdo fica no original. */
+  lang?: string;
   /** Mostra o botão de feedback por slide (só quando há servidor para receber). */
   feedback?: boolean;
 }
@@ -24,7 +27,10 @@ export async function renderOnboardingPage(file?: string, page: PageOptions = {}
       : { status: 500, html: renderErrorPage(result.message, root) };
   }
   try {
-    return { status: 200, html: renderOnboarding(result.data, { root, file: result.file, ...page }) };
+    if (result.data.meta?.status !== "filled") return { status: 200, html: renderOnboarding(result.data, { root, file: result.file, ...page }) };
+    const view = localize(result.data, result.file, page.lang);
+    const languages = { current: view.current, source: view.source, untranslated: view.untranslated, list: view.languages };
+    return { status: 200, html: renderOnboarding(view.data, { root, file: result.file, ...page, languages, original: result.data }) };
   } catch (err) {
     return { status: 500, html: renderErrorPage((err as Error).message, root) };
   }

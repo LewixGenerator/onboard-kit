@@ -27,3 +27,5 @@ export { coverageScore, coverageBadge } from "./validate";
 export type { Coverage } from "./validate";
 export { mcpTools, handleMcpMessage } from "./mcp";
 export { detectAiCli, AI_CLIS } from "./ai";
+export { localize, mergeTodo, pendingStrings, readTranslation, translatableStrings, translationFile, type LocalizedView, type Translation } from "./translate";
+export { cliLang, parseLang, type Lang } from "./i18n";

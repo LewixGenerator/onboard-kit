@@ -1,3 +1,4 @@
+import { tr } from "./i18n";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -167,6 +168,7 @@ export function onboardingStatus(data: OnboardingData, root: string): StatusRepo
   }
   report.stale = [...stale.values()];
 
+
   const cited = refs.map((r) => parseEvidence(r.ref).file);
   report.uncovered = report.added
     .filter((f) => SOURCE_FILE.test(f) && !TEST_FILE.test(f) && !/(^|\/)(node_modules|dist|build)\//.test(f) && !/\.d\.[cm]?ts$/.test(f))
@@ -200,15 +202,15 @@ export function statusPrompt(report: StatusReport, file = "onboarding.json"): st
   if (!report.since || (!report.stale.length && !report.broken.length && !report.uncovered.length && !report.feedback.length)) return undefined;
   const parts = [
     report.stale.length || report.broken.length || report.uncovered.length
-      ? `Atualize o ${file}. Desde o commit ${report.since.slice(0, 7)}, mudaram arquivos que o onboarding cita.`
-      : `Melhore o ${file} com o feedback de quem leu.`,
+      ? tr(`Atualize o ${file}. Desde o commit ${report.since.slice(0, 7)}, mudaram arquivos que o onboarding cita.`, `Update ${file}. Since commit ${report.since.slice(0, 7)}, files cited by the onboarding have changed.`)
+      : tr(`Melhore o ${file} com o feedback de quem leu.`, `Improve ${file} with feedback from readers.`),
   ];
-  if (report.stale.length) parts.push(`Revise estes itens: ${report.stale.map((s) => `${s.item}${s.title ? ` ("${s.title}")` : ""}`).join("; ")}.`);
-  if (report.broken.length) parts.push(`Estas evidências apontam para arquivos apagados: ${report.broken.map((b) => b.ref).join(", ")}.`);
-  if (report.uncovered.length) parts.push(`Veja se estes arquivos novos pedem itens novos: ${report.uncovered.join(", ")}.`);
+  if (report.stale.length) parts.push(`${tr("Revise estes itens", "Review these items")}: ${report.stale.map((s) => `${s.item}${s.title ? ` ("${s.title}")` : ""}`).join("; ")}.`);
+  if (report.broken.length) parts.push(`${tr("Estas evidências apontam para arquivos apagados", "This evidence points to deleted files")}: ${report.broken.map((b) => b.ref).join(", ")}.`);
+  if (report.uncovered.length) parts.push(`${tr("Veja se estes arquivos novos pedem itens novos", "Check whether these new files need new items")}: ${report.uncovered.join(", ")}.`);
   if (report.feedback.length) {
-    parts.push(`Quem leu achou confuso: ${report.feedback.slice(-10).map((f) => `${f.title || f.slide} ("${f.comment.replace(/\s+/g, " ").slice(0, 200)}")`).join("; ")}. Reescreva esses trechos de forma mais clara e, no fim, esvazie o ${FEEDBACK_FILE} (deixe []).`);
+    parts.push(`${tr("Quem leu achou confuso", "Readers found this confusing")}: ${report.feedback.slice(-10).map((f) => `${f.title || f.slide} ("${f.comment.replace(/\s+/g, " ").slice(0, 200)}")`).join("; ")}. ${tr(`Reescreva esses trechos de forma mais clara e, no fim, esvazie o ${FEEDBACK_FILE} (deixe []).`, `Rewrite those parts more clearly and, at the end, empty ${FEEDBACK_FILE} (leave []).`)}`);
   }
-  parts.push(`Use \`git diff ${report.since.slice(0, 7)} -- <arquivo>\` para ver o que mudou, mantenha o restante como está, atualize meta.commit e meta.generatedAt e rode "npx onboarding-kit validate".`);
+  parts.push(tr(`Use \`git diff ${report.since.slice(0, 7)} -- <arquivo>\` para ver o que mudou, mantenha o restante como está, atualize meta.commit e meta.generatedAt e rode "npx onboarding-kit validate".`, `Use \`git diff ${report.since.slice(0, 7)} -- <file>\` to see what changed, keep the rest as is, update meta.commit and meta.generatedAt and run "npx onboarding-kit validate".`));
   return parts.join(" ");
 }

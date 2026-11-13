@@ -1,3 +1,4 @@
+import { parseLang, type Lang } from "../i18n";
 import { isAchromatic, packageName, resolveBrand, toHex, type ResolvedBrand } from "../brand";
 import { cachedMarkers } from "../facts";
 import { onboardingHistory } from "../history";
@@ -37,6 +38,12 @@ export interface RenderOptions {
   feedback?: boolean;
   /** Link de cada trilha. Padrão: ?trilha=<id>; o export troca por arquivos separados. */
   trackHref?: (id: string) => string;
+  /** Idiomas do seletor no topo e quanto falta traduzir (vem de localize()). */
+  languages?: { current: Lang; source: Lang; untranslated: number; list: Lang[] };
+  /** O onboarding.json original, quando `data` é uma tradução: o histórico compara versões dele. */
+  original?: OnboardingData;
+  /** Link de cada idioma. Padrão: ?lang=<idioma>; o export troca por arquivos separados. */
+  langHref?: (lang: Lang) => string;
   /** Caminho do onboarding.json: com ele, a página mostra o que mudou desde a última visita. */
   file?: string;
   /** Embute Mermaid e fontes no HTML (export --offline). */
@@ -147,7 +154,7 @@ export function renderMissingPage(root?: string): string {
   const t = copyFor("pt-BR");
   const theme = themeFor(resolveBrand(undefined, root));
   const name = packageName(root);
-  const inner = `${soloHead(theme, name, t.missing.title, t.missing.body)}${promptBlock(t, aiPrompt(undefined, { init: true }))}${waiting(t)}<p class="manual">${escapeHtml(t.missing.manual)} <code>npx onboarding-kit init</code></p>`;
+  const inner = `${soloHead(theme, name, t.missing.title, t.missing.body)}${promptBlock(t, aiPrompt(undefined, { init: true, lang: "pt" }))}${waiting(t)}<p class="manual">${escapeHtml(t.missing.manual)} <code>npx onboarding-kit init</code></p>`;
   return soloPage("pt-BR", name ? `${name} · Onboarding` : "Onboarding", inner, theme, "missing");
 }
 
@@ -162,15 +169,41 @@ export function renderErrorPage(message: string, root?: string): string {
 function renderPendingPage(data: OnboardingData, root: string | undefined, lang: string, t: Copy): string {
   const theme = themeFor(resolveBrand(data, root));
   const name = data.project?.name?.trim() || packageName(root);
-  const inner = `${soloHead(theme, name, t.pending.title, t.pending.body)}${promptBlock(t, aiPrompt())}${waiting(t)}${progressBlock(data, t)}`;
+  const inner = `${soloHead(theme, name, t.pending.title, t.pending.body)}${promptBlock(t, aiPrompt(undefined, { lang: parseLang(data.meta?.language) ?? "pt" }))}${waiting(t)}${progressBlock(data, t)}`;
   return soloPage(lang, name ? `${name} · Onboarding` : "Onboarding", inner, theme, "pending");
+}
+
+/** Query string só com os parâmetros preenchidos ("?" quando nenhum). */
+function query(params: Record<string, string | undefined>): string {
+  const q = Object.entries(params)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
+    .join("&");
+  return `?${q}`;
+}
+
+/** PT | EN no topo; o idioma atual fica marcado. */
+function languageSwitch(t: Copy, options: RenderOptions): string {
+  const langs = options.languages;
+  if (!langs || langs.list.length < 2) return "";
+  const href = options.langHref ?? ((lang: Lang) => query({ lang: lang === langs.source ? "" : lang, trilha: options.track }));
+  return `<nav class="langs" aria-label="${escapeHtml(t.ui.language)}">${langs.list
+    .map((lang) => `<a href="${escapeHtml(href(lang))}" hreflang="${lang}"${lang === langs.current ? ' aria-current="true"' : ""}>${lang.toUpperCase()}</a>`)
+    .join("")}</nav>`;
+}
+
+/** Aviso na abertura quando o idioma escolhido ainda não tem tradução completa. */
+function untranslatedNote(t: Copy, options: RenderOptions): string {
+  const langs = options.languages;
+  if (!langs?.untranslated) return "";
+  return `<p class="untranslated">${escapeHtml(t.ui.untranslated.replace("{n}", String(langs.untranslated)))} <code>npx onboarding-kit translate --to ${langs.current}</code></p>`;
 }
 
 /** Escolha de trilha na boas-vindas, ou a trilha atual com o link para ver tudo. */
 function tracksBlock(data: OnboardingData, t: Copy, options: RenderOptions): string {
   const tracks = filled(data.tracks).filter((tr) => tr.id?.trim());
   if (!tracks.length) return "";
-  const href = options.trackHref ?? ((id: string) => (id ? `?trilha=${encodeURIComponent(id)}` : "?"));
+  const href = options.trackHref ?? ((id: string) => query({ trilha: id, lang: options.languages && options.languages.current !== options.languages.source ? options.languages.current : "" }));
   const current = tracks.find((tr) => tr.id === options.track);
   if (current) {
     return `<p class="track-now"><span class="badge">${escapeHtml(t.ui.track)}: ${escapeHtml(current.name || current.id)}</span><a href="${escapeHtml(href(""))}">${escapeHtml(t.ui.allTracks)}</a></p>`;
@@ -289,7 +322,7 @@ export function renderOnboarding(data: OnboardingData, options: RenderOptions = 
   const total = cursor + 1;
   const minutes = Math.max(3, Math.round(total * 0.4));
   const hasTasks = middle.some((c) => c.id === "mission");
-  const slides: Slide[] = [welcomeSlide(data, t, chapters, minutes, theme, tracksBlock(data, t, options)), ...middle.flatMap((c) => c.slides), finaleSlide(t, chapters, hasTasks, theme)];
+  const slides: Slide[] = [welcomeSlide(data, t, chapters, minutes, theme, tracksBlock(data, t, options) + untranslatedNote(t, options)), ...middle.flatMap((c) => c.slides), finaleSlide(t, chapters, hasTasks, theme)];
   const chapterNum = (id: ChapterId) => (id === "welcome" ? "👋" : id === "finale" ? "🎉" : String(chapters.find((c) => c.id === id)?.num ?? ""));
 
   // âncora de cada slide para links diretos: #/arquitetura, #/arquitetura/2...
@@ -325,13 +358,14 @@ export function renderOnboarding(data: OnboardingData, options: RenderOptions = 
     })
     .join("");
 
-  const changes = options.file ? onboardingHistory(options.file, data) : {};
+  const changes = options.file ? onboardingHistory(options.file, options.original ?? data) : {};
   const history = Object.keys(changes).length ? JSON.stringify(changes) : "";
 
   const body = `<div class="deck">
 <header class="topbar">
 <span class="brand">${logoImg(theme, "brand-mark")}<span class="brand-name">${escapeHtml(name)}</span></span>
 <nav class="segments" aria-label="${escapeHtml(t.ui.chapters)}">${segments}</nav>
+${languageSwitch(t, options)}
 <button type="button" class="icon-btn" data-search title="${escapeHtml(t.ui.search)} (Ctrl+K)" aria-label="${escapeHtml(t.ui.search)}">${ICON_SEARCH}</button>
 ${options.feedback ? `<button type="button" class="icon-btn" data-feedback title="${escapeHtml(t.ui.feedback)}" aria-label="${escapeHtml(t.ui.feedback)}">${ICON_FEEDBACK}</button>` : ""}
 <button type="button" class="icon-btn" data-overview title="${escapeHtml(t.ui.overview)} (O)" aria-label="${escapeHtml(t.ui.overview)}">${ICON_GRID}</button>

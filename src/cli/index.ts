@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, watch, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { createInterface } from "node:readline";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { createOnboardingHandler } from "../adapters/node";
 import { dependencyNames, detectFramework, detectProject, detectSubprojects, findSubproject, FRAMEWORK_IDS, FRAMEWORKS, readProjectManifests, type Subproject } from "../detect";
@@ -12,7 +13,8 @@ import { FONTS, MERMAID_URL } from "../render/assets";
 import { aiPrompt, createTemplate } from "../template";
 import type { Framework } from "../types";
 import { setupAgents } from "../agents";
-import { cliLang, tr } from "../i18n";
+import { CONTENT_LANG, cliLang, parseLang, tr, type Lang } from "../i18n";
+import { localize, mergeTodo, pendingStrings, readTranslation, todoFile, todoInstructions, translationFile } from "../translate";
 import { resolveBrand } from "../brand";
 import { VERSION } from "../version";
 import { serveBanner, type BannerInfo } from "./banner";
@@ -45,11 +47,12 @@ ${c.bold("Uso")}
   npx onboarding-kit mcp        Servidor MCP (stdio) com facts, status e validate para a sua IA
   npx onboarding-kit serve      Abre a apresentação em http://localhost:4321
   npx onboarding-kit export     Gera um HTML único da apresentação (GitHub Pages, anexo, PDF)
+  npx onboarding-kit translate  Traduz o conteúdo para outro idioma, só o que mudou (--to en)
 
 ${c.bold("Opções")}
   --file <caminho>           Arquivo de onboarding (padrão: onboarding.json)
   --framework <id>           Força o framework em vez de detectar (init). Veja a lista abaixo
-  --lang <idioma>            Idioma do conteúdo gerado (init, padrão: pt-BR; en em sistemas em outro idioma)
+  --lang <idioma>            Idioma do conteúdo e das mensagens: pt-BR (padrão) ou en (init)
   --project <pasta|nome>     Subprojeto do monorepo (init: app que recebe a rota; facts: fatos só dele)
   --people                   Inclui "quem procurar" (init) e donos de código/autores por área (facts)
   --no-route                 Não cria/edita a rota no projeto (init)
@@ -57,6 +60,7 @@ ${c.bold("Opções")}
   --force                    Sobrescreve o onboarding.json existente (init)
   --port <porta>             Porta do serve (padrão: 4321)
   --out <arquivo>            Arquivo de saída do export (padrão: onboarding.html)
+  --to <idioma>              Idioma de destino do translate: en ou pt
   --offline                  Embute Mermaid e fontes no HTML exportado (export)
   --json                     Saída em JSON (facts, status)
   --fix                      Corrige evidências que mudaram de linha ou de arquivo (status)
@@ -64,7 +68,7 @@ ${c.bold("Opções")}
   --strict                   Trata avisos como erros (validate)
   --min-score <n>            Falha se a cobertura ficar abaixo de n% (validate)
   --badge <arquivo>          Grava o JSON do badge de cobertura para o shields.io (validate)
-  --ai [claude|codex|gemini] Roda a IA instalada com o prompt e valida no fim (init, status)
+  --ai [claude|codex|gemini] Roda a IA instalada com o prompt e valida no fim (init, status, translate)
 
 ${c.bold("Frameworks")}
   ${FRAMEWORK_IDS.join(", ")}
@@ -83,11 +87,12 @@ ${c.bold("Usage")}
   npx onboarding-kit mcp        MCP server (stdio) with facts, status and validate for your AI
   npx onboarding-kit serve      Opens the presentation at http://localhost:4321
   npx onboarding-kit export     Builds a single HTML file of the presentation (GitHub Pages, attachment, PDF)
+  npx onboarding-kit translate  Translates the content into another language, only what changed (--to pt)
 
 ${c.bold("Options")}
   --file <path>              Onboarding file (default: onboarding.json)
   --framework <id>           Forces the framework instead of detecting it (init). See the list below
-  --lang <language>          Language of the generated content (init, default: en, or pt-BR on Portuguese systems)
+  --lang <language>          Language of the content and messages: pt-BR (default) or en (init)
   --project <folder|name>    Monorepo subproject (init: app that gets the route; facts: only its facts)
   --people                   Adds "who to ask" (init) and code owners/authors per area (facts)
   --no-route                 Does not create/edit the route in the project (init)
@@ -95,6 +100,7 @@ ${c.bold("Options")}
   --force                    Overwrites an existing onboarding.json (init)
   --port <port>              serve port (default: 4321)
   --out <file>               export output file (default: onboarding.html)
+  --to <language>            Target language for translate: en or pt
   --offline                  Embeds Mermaid and fonts in the exported HTML (export)
   --json                     JSON output (facts, status)
   --fix                      Fixes evidence that moved to another line or file (status)
@@ -102,9 +108,9 @@ ${c.bold("Options")}
   --strict                   Treats warnings as errors (validate)
   --min-score <n>            Fails if coverage is below n% (validate)
   --badge <file>             Writes the coverage badge JSON for shields.io (validate)
-  --ai [claude|codex|gemini] Runs the installed AI with the prompt and validates at the end (init, status)
+  --ai [claude|codex|gemini] Runs the installed AI with the prompt and validates at the end (init, status, translate)
 
-Messages follow the system language; set ONBOARDING_KIT_LANG=pt or en to choose.
+Messages are in Portuguese by default; set ONBOARDING_KIT_LANG=en for English.
 
 ${c.bold("Frameworks")}
   ${FRAMEWORK_IDS.join(", ")}
@@ -112,12 +118,15 @@ ${c.bold("Frameworks")}
 
 interface Args {
   command?: string;
+  /** Argumentos soltos depois do comando (ex.: `onboarding-kit <comando> <arg>`). */
+  positional: string[];
   flags: Record<string, string | boolean>;
 }
 
 function parseArgs(argv: string[]): Args {
   const flags: Record<string, string | boolean> = {};
   let command: string | undefined;
+  const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg.startsWith("--")) {
@@ -129,9 +138,11 @@ function parseArgs(argv: string[]): Args {
       flags.help = true;
     } else if (!command) {
       command = arg;
+    } else {
+      positional.push(arg);
     }
   }
-  return { command, flags };
+  return { command, positional, flags };
 }
 
 export { detectFramework };
@@ -312,7 +323,7 @@ function setupVite(root: string, framework: Framework, file?: string): string[] 
   if (config) {
     const source = readFileSync(join(root, config), "utf8");
     const patched = patchViteConfig(source, call);
-    if (patched === source) return [`${c.dim("•")} ${config} já usa o plugin do onboarding-kit`];
+    if (patched === source) return [tr(`${c.dim("•")} ${config} já usa o plugin do onboarding-kit`, `${c.dim("•")} ${config} already uses the onboarding-kit plugin`)];
     if (patched) {
       writeFileSync(join(root, config), patched);
       return [tr(`${c.green("✓")} Adicionei ${c.bold("onboarding()")} aos plugins do ${config} (rota /onboarding no vite dev)`, `${c.green("✓")} Added ${c.bold("onboarding()")} to the ${config} plugins (/onboarding route in vite dev)`)];
@@ -327,7 +338,7 @@ function createRouteFile(root: string, framework: Framework, file?: string): str
   const ext = existsSync(join(root, "tsconfig.json")) ? "ts" : "js";
   const rel = route.file(ext);
   if (existsSync(join(root, rel))) {
-    return [`${c.yellow("!")} ${rel} já existe. Para servir em /onboarding, use:`, "", c.dim(framework === "cra" ? withFile(`app.all("/onboarding", require("onboarding-kit/node").createOnboardingHandler());`, file) : source)];
+    return [tr(`${c.yellow("!")} ${rel} já existe. Para servir em /onboarding, use:`, `${c.yellow("!")} ${rel} already exists. To serve /onboarding, use:`), "", c.dim(framework === "cra" ? withFile(`app.all("/onboarding", require("onboarding-kit/node").createOnboardingHandler());`, file) : source)];
   }
   mkdirSync(dirname(join(root, rel)), { recursive: true });
   writeFileSync(join(root, rel), source);
@@ -368,7 +379,7 @@ export function setupRoute(root: string, framework: Framework, file?: string): s
     case "vite":
       return setupVite(root, framework, file);
     case "remix":
-      return VITE_CONFIGS.some((f) => existsSync(join(root, f))) ? setupVite(root, framework, file) : [`${c.dim("•")} Para servir em /onboarding:`, "", c.dim(withFile(SNIPPETS.remix!, file))];
+      return VITE_CONFIGS.some((f) => existsSync(join(root, f))) ? setupVite(root, framework, file) : [tr(`${c.dim("•")} Para servir em /onboarding:`, `${c.dim("•")} To serve /onboarding:`), "", c.dim(withFile(SNIPPETS.remix!, file))];
     case "angular":
     case "react-native":
     case "electron":
@@ -376,7 +387,7 @@ export function setupRoute(root: string, framework: Framework, file?: string): s
       return []; // sem servidor web: o script `onboarding` do init cobre
     default: {
       const snippet = SNIPPETS[framework] ?? NODE_SNIPPET;
-      return [`${c.dim("•")} Para servir em /onboarding no seu servidor:`, "", c.dim(withFile(snippet, file))];
+      return [tr(`${c.dim("•")} Para servir em /onboarding no seu servidor:`, `${c.dim("•")} To serve /onboarding from your server:`), "", c.dim(withFile(snippet, file))];
     }
   }
 }
@@ -430,6 +441,17 @@ function setupMonorepoRoute(root: string, file: string, host: Subproject, packag
   return lines;
 }
 
+/** Pergunta uma vez o idioma do onboarding (Enter = português). */
+function askLanguage(): Promise<Lang> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((done) => {
+    rl.question(`\n${c.bold("Idioma do onboarding / Onboarding language")}\n  ${c.cyan("1")} Português ${c.dim("(padrão)")}\n  ${c.cyan("2")} English\n${c.dim("›")} `, (answer) => {
+      rl.close();
+      done(/^\s*(2|en)/i.test(answer) ? "en" : "pt");
+    });
+  });
+}
+
 async function cmdInit(flags: Args["flags"]): Promise<number> {
   const root = process.cwd();
   const { pkg, deno } = readProjectManifests(root);
@@ -445,7 +467,11 @@ async function cmdInit(flags: Args["flags"]): Promise<number> {
   }
   const framework = forced ?? detectFramework(pkg, deno);
   const label = FRAMEWORKS.find((f) => f.id === framework)!.label;
-  const language = typeof flags.lang === "string" ? flags.lang : cliLang() === "pt" ? "pt-BR" : "en";
+  if (typeof flags.lang !== "string" && !process.env.ONBOARDING_KIT_LANG && !flags.ai && process.stdin.isTTY && process.stdout.isTTY && !process.env.CI && !(existsSync(resolveFile(typeof flags.file === "string" ? flags.file : undefined)) && !flags.force)) {
+    const chosen = await askLanguage();
+    process.env.ONBOARDING_KIT_LANG = chosen;
+  }
+  const language = typeof flags.lang === "string" ? flags.lang : CONTENT_LANG[cliLang()];
   const file = resolveFile(typeof flags.file === "string" ? flags.file : undefined);
   const relFile = relative(root, file);
   const profile = detectProject(root);
@@ -454,7 +480,7 @@ async function cmdInit(flags: Args["flags"]): Promise<number> {
   if (typeof flags.project === "string") {
     host = findSubproject(subprojects, flags.project);
     if (!host) {
-      console.error(c.red(`✗ Subprojeto não encontrado: ${flags.project}.${subprojects.length ? ` Use um destes: ${subprojects.map((s) => s.path).join(", ")}.` : " Este repositório não tem subprojetos."}`));
+      console.error(c.red(tr(`✗ Subprojeto não encontrado: ${flags.project}.${subprojects.length ? ` Use um destes: ${subprojects.map((s) => s.path).join(", ")}.` : " Este repositório não tem subprojetos."}`, `✗ Subproject not found: ${flags.project}.${subprojects.length ? ` Use one of: ${subprojects.map((s) => s.path).join(", ")}.` : " This repository has no subprojects."}`)));
       return 1;
     }
   }
@@ -525,14 +551,14 @@ export function reportToCi(issues: Issue[], file: string): void {
   const summary = process.env.GITHUB_STEP_SUMMARY;
   if (!summary) return;
   const rows = issues.map((i) => `| ${i.level === "error" ? "❌" : "⚠️"} | \`${i.path || "(raiz)"}\` | ${i.message.replace(/\|/g, "\\|")} |`);
-  appendFileSync(summary, `### onboarding-kit validate\n\n${rows.length ? `| | Campo | Problema |\n|---|---|---|\n${rows.join("\n")}` : "✅ Nenhum problema."}\n\n`);
+  appendFileSync(summary, `### onboarding-kit validate\n\n${rows.length ? `${tr("| | Campo | Problema |", "| | Field | Problem |")}\n|---|---|---|\n${rows.join("\n")}` : tr("✅ Nenhum problema.", "✅ No problems.")}\n\n`);
 }
 
 /** --ai [claude|codex|gemini]: roda a IA instalada com o prompt e valida no fim. */
 async function askAi(choice: string | boolean, prompt: string, flags: Args["flags"]): Promise<number> {
   const name = detectAiCli(typeof choice === "string" ? choice : undefined);
   if (!name) {
-    console.error(c.red(`✗ Não encontrei ${typeof choice === "string" && choice !== "auto" ? choice : "uma CLI de IA"} instalada (${Object.keys(AI_CLIS).join(", ")}). Envie o prompt para a sua IA:`));
+    console.error(c.red(tr(`✗ Não encontrei ${typeof choice === "string" && choice !== "auto" ? choice : "uma CLI de IA"} instalada (${Object.keys(AI_CLIS).join(", ")}). Envie o prompt para a sua IA:`, `✗ ${typeof choice === "string" && choice !== "auto" ? choice : "No AI CLI"} not found (${Object.keys(AI_CLIS).join(", ")}). Send the prompt to your AI:`)));
     console.log(`\n  ${c.cyan(prompt)}\n`);
     return 1;
   }
@@ -646,21 +672,95 @@ async function cmdExport(flags: Args["flags"]): Promise<number> {
       return 1;
     }
   }
-  // cada trilha vira um arquivo ao lado: onboarding.frontend.html
+  // cada trilha e cada idioma traduzido viram um arquivo ao lado: onboarding.frontend.html, onboarding.en.html
   const ext = extname(out) || ".html";
-  const fileFor = (id: string) => (id ? `${basename(out, ext)}.${id}${ext}` : basename(out));
+  const source = parseLang(result.data.meta?.language) ?? "pt";
+  const langs: Lang[] = [source, ...(["pt", "en"] as Lang[]).filter((l) => l !== source && readTranslation(result.file, l))];
+  const fileFor = (track: string, lang: Lang) => `${[basename(out, ext), track, lang === source ? "" : lang].filter(Boolean).join(".")}${ext}`;
   const tracks = (result.data.tracks ?? []).filter((tr) => tr?.id?.trim());
-  const base = { root: dirname(result.file), file: result.file, inline, trackHref: fileFor };
-  const pages: [string, string][] = [[out, renderOnboarding(result.data, base)]];
-  for (const tr of tracks) pages.push([join(dirname(out), fileFor(tr.id)), renderOnboarding(result.data, { ...base, track: tr.id })]);
+  const pages: [string, string][] = [];
+  for (const lang of langs) {
+    const view = localize(result.data, result.file, lang);
+    for (const track of ["", ...tracks.map((tr) => tr.id)]) {
+      const html = renderOnboarding(view.data, {
+        root: dirname(result.file),
+        file: result.file,
+        original: result.data,
+        inline,
+        track: track || undefined,
+        trackHref: (id) => fileFor(id, lang),
+        langHref: (l) => fileFor(track, l),
+        languages: { current: lang, source, untranslated: view.untranslated, list: langs },
+      });
+      pages.push([track || lang !== source ? join(dirname(out), fileFor(track, lang)) : out, html]);
+    }
+  }
   for (const [path, html] of pages) {
     mkdirSync(dirname(resolve(path)), { recursive: true });
     writeFileSync(resolve(path), html);
   }
   const kb = Math.round(pages[0][1].length / 1024);
   console.log(tr(`${c.green("✓")} Exportei a apresentação para ${c.bold(out)} ${c.dim(`(${kb} KB${inline ? ", offline" : ""}, abre direto no navegador)`)}`, `${c.green("✓")} Exported the presentation to ${c.bold(out)} ${c.dim(`(${kb} KB${inline ? ", offline" : ""}, opens straight in the browser)`)}`));
-  if (tracks.length) console.log(tr(`${c.green("✓")} ${tracks.length} trilha(s)`, `${c.green("✓")} ${tracks.length} track(s)`) + `: ${pages.slice(1).map(([p]) => p.split(sep).join("/")).join(", ")}`);
+  if (pages.length > 1) console.log(tr(`${c.green("✓")} Trilhas e idiomas`, `${c.green("✓")} Tracks and languages`) + `: ${pages.slice(1).map(([p]) => p.split(sep).join("/")).join(", ")}`);
   console.log(c.dim(tr("  Os TODOs são uma foto de agora. Para PDF, abra o arquivo e use Imprimir / PDF no final ou no índice.", "  TODOs are a snapshot of now. For a PDF, open the file and use Print / PDF at the end or in the index.")));
+  return 0;
+}
+
+/** translate --to en: traduz só os textos que mudaram desde a última tradução, sem a IA reler o repositório. */
+async function cmdTranslate(flags: Args["flags"]): Promise<number> {
+  const result = await loadOnboarding(typeof flags.file === "string" ? flags.file : undefined);
+  if (!result.ok) {
+    console.error(c.red(`✗ ${result.message}`));
+    return 1;
+  }
+  const data = result.data;
+  if (data.meta?.status !== "filled") {
+    console.error(c.red(tr("✗ Preencha o onboarding antes de traduzir.", "✗ Fill in the onboarding before translating it.")));
+    return 1;
+  }
+  const source = parseLang(data.meta?.language) ?? "pt";
+  const to = parseLang(typeof flags.to === "string" ? flags.to : undefined) ?? (source === "pt" ? "en" : "pt");
+  const name = (l: Lang) => (l === "pt" ? tr("português", "Portuguese") : tr("inglês", "English"));
+  if (to === source) {
+    console.error(c.red(tr(`✗ O onboarding já está em ${name(to)}.`, `✗ The onboarding is already in ${name(to)}.`)));
+    return 1;
+  }
+  const rel = (p: string) => relative(process.cwd(), p).split(sep).join("/");
+  const todoPath = todoFile(result.file, to);
+  const outPath = translationFile(result.file, to);
+  const existing = readTranslation(result.file, to);
+  const { translation, merged } = mergeTodo(data, existing, to, todoPath);
+  if (merged || existing) writeFileSync(outPath, JSON.stringify(translation, null, 2) + "\n");
+  if (merged) console.log(tr(`${c.green("✓")} ${merged} texto(s) traduzido(s) guardado(s) em ${c.bold(rel(outPath))}`, `${c.green("✓")} Saved ${merged} translated text(s) to ${c.bold(rel(outPath))}`));
+
+  const pending = pendingStrings(data, translation);
+  const count = Object.keys(pending).length;
+  if (!count) {
+    if (existsSync(todoPath)) rmSync(todoPath);
+    console.log(tr(`${c.green("✓")} Tradução para ${name(to)} em dia: ${Object.keys(translation.strings).length} texto(s). Veja em ${c.bold("/onboarding?lang=" + to)}.`, `${c.green("✓")} ${name(to)} translation is up to date: ${Object.keys(translation.strings).length} text(s). See it at ${c.bold("/onboarding?lang=" + to)}.`));
+    return 0;
+  }
+  writeFileSync(todoPath, JSON.stringify({ _instructions: todoInstructions(to), _createdAt: new Date().toISOString(), strings: pending }, null, 2) + "\n");
+  const size = Math.max(1, Math.round((JSON.stringify(pending).length / readFileSync(result.file, "utf8").length) * 100));
+  console.log(
+    tr(
+      `${c.cyan("→")} ${count} texto(s) para traduzir em ${c.bold(rel(todoPath))} ${c.dim(`(${size}% do tamanho do ${rel(result.file)}; a IA não precisa ler o repositório)`)}`,
+      `${c.cyan("→")} ${count} text(s) to translate in ${c.bold(rel(todoPath))} ${c.dim(`(${size}% of the size of ${rel(result.file)}; the AI doesn't need to read the repository)`)}`,
+    ),
+  );
+  const prompt = tr(
+    `Traduza o arquivo ${rel(todoPath)} seguindo "_instructions" e depois rode "npx onboarding-kit translate --to ${to}".`,
+    `Translate ${rel(todoPath)} following "_instructions", then run "npx onboarding-kit translate --to ${to}".`,
+  );
+  if (flags.ai) {
+    const ai = detectAiCli(typeof flags.ai === "string" ? flags.ai : undefined);
+    if (ai) {
+      console.log(tr(`${c.cyan("→")} Rodando ${c.bold(ai)}…\n`, `${c.cyan("→")} Running ${c.bold(ai)}…\n`));
+      runAi(ai, prompt);
+      return cmdTranslate({ ...flags, ai: false });
+    }
+  }
+  console.log(`\n${c.bold(tr("Envie para a sua IA:", "Send to your AI:"))}\n\n  ${c.cyan(prompt)}\n`);
   return 0;
 }
 
@@ -689,7 +789,7 @@ async function cmdStatus(flags: Args["flags"]): Promise<number> {
   }
   if (process.env.GITHUB_STEP_SUMMARY && (flags.ci || process.env.GITHUB_ACTIONS === "true")) {
     const prompt = statusPrompt(report, rel);
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### onboarding-kit status\n\n${prompt ? `O onboarding pode estar desatualizado: ${report.stale.length} item(ns) citam arquivos que mudaram.\n\n> ${prompt}` : "✅ Em dia com o código."}\n\n`);
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### onboarding-kit status\n\n${prompt ? `${tr(`O onboarding pode estar desatualizado: ${report.stale.length} item(ns) citam arquivos que mudaram.`, `The onboarding may be outdated: ${report.stale.length} item(s) cite files that changed.`)}\n\n> ${prompt}` : tr("✅ Em dia com o código.", "✅ Up to date with the code.")}\n\n`);
   }
   return 0;
 }
@@ -849,7 +949,9 @@ export function formatFacts(f: RepoFacts): string {
 }
 
 async function main(): Promise<number> {
-  const { command, flags } = parseArgs(process.argv.slice(2));
+  const { command, positional, flags } = parseArgs(process.argv.slice(2));
+  // --lang en também troca as mensagens desta execução
+  if (!process.env.ONBOARDING_KIT_LANG && typeof flags.lang === "string") process.env.ONBOARDING_KIT_LANG = parseLang(flags.lang);
   if (flags["no-route"]) flags.route = false;
   if (!command || flags.help || command === "help") {
     console.log(cliLang() === "pt" ? HELP : HELP_EN);
@@ -864,6 +966,8 @@ async function main(): Promise<number> {
       return cmdStatus(flags);
     case "export":
       return cmdExport(flags);
+    case "translate":
+      return cmdTranslate(flags);
     case "mcp":
       await runMcpServer(typeof flags.file === "string" ? flags.file : undefined);
       return 0;
@@ -883,7 +987,7 @@ async function main(): Promise<number> {
         const subprojects = detectSubprojects(root);
         project = findSubproject(subprojects, flags.project)?.path;
         if (!project) {
-          console.error(c.red(`✗ Subprojeto não encontrado: ${flags.project}.${subprojects.length ? ` Use um destes: ${subprojects.map((s) => s.path).join(", ")}.` : " Este repositório não tem subprojetos."}`));
+          console.error(c.red(tr(`✗ Subprojeto não encontrado: ${flags.project}.${subprojects.length ? ` Use um destes: ${subprojects.map((s) => s.path).join(", ")}.` : " Este repositório não tem subprojetos."}`, `✗ Subproject not found: ${flags.project}.${subprojects.length ? ` Use one of: ${subprojects.map((s) => s.path).join(", ")}.` : " This repository has no subprojects."}`)));
           return 1;
         }
       }

@@ -260,6 +260,8 @@ const pt = {
     tracks: "Escolha sua trilha",
     track: "Trilha",
     allTracks: "Ver tudo",
+    language: "Idioma",
+    untranslated: "{n} texto(s) ainda sem tradução aparecem no idioma original. Para traduzir só o que falta:",
   },
   pending: {
     title: "O onboarding ainda não foi gerado",
@@ -505,6 +507,8 @@ const en: Copy = {
     tracks: "Pick your track",
     track: "Track",
     allTracks: "See everything",
+    language: "Language",
+    untranslated: "{n} text(s) not translated yet are shown in the original language. To translate only what's missing:",
   },
   pending: {
     title: "Onboarding has not been generated yet",
@@ -748,6 +752,8 @@ const es: Copy = {
     tracks: "Elige tu ruta",
     track: "Ruta",
     allTracks: "Ver todo",
+    language: "Idioma",
+    untranslated: "{n} texto(s) aún sin traducir aparecen en el idioma original. Para traducir solo lo que falta:",
   },
   pending: {
     title: "El onboarding todavía no se generó",

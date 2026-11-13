@@ -1,19 +1,32 @@
 /* Navegação, deep links, busca, impressão e layout do deck exportado (usa o onboarding.json do próprio repositório). */
 const { test, expect } = require("@playwright/test");
 const { execFileSync } = require("node:child_process");
-const { mkdtempSync } = require("node:fs");
+const { mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const ROOT = join(__dirname, "..");
 let deck;
+let translated;
 let errors = [];
 
 test.beforeAll(() => {
   const out = join(mkdtempSync(join(tmpdir(), "onboarding-e2e-")), "onboarding.html");
   execFileSync(process.execPath, [join(ROOT, "dist/cli/index.js"), "export", "--out", out], { cwd: ROOT });
   deck = pathToFileURL(out).href;
+
+  // cópia com tradução para inglês: translate gera o arquivo de trabalho, a "IA" traduz, translate guarda
+  const dir = mkdtempSync(join(tmpdir(), "onboarding-e2e-lang-"));
+  writeFileSync(join(dir, "onboarding.json"), readFileSync(join(ROOT, "onboarding.json")));
+  const cli = (...args) => execFileSync(process.execPath, [join(ROOT, "dist/cli/index.js"), ...args], { cwd: dir });
+  cli("translate", "--to", "en");
+  const todo = JSON.parse(readFileSync(join(dir, "onboarding.en.todo.json"), "utf8"));
+  for (const key of Object.keys(todo.strings)) todo.strings[key] = `EN ${todo.strings[key]}`;
+  writeFileSync(join(dir, "onboarding.en.todo.json"), JSON.stringify(todo));
+  cli("translate", "--to", "en");
+  cli("export", "--out", "site/index.html");
+  translated = pathToFileURL(join(dir, "site/index.html")).href;
 });
 
 const active = (page) => page.locator(".slide.is-active");
@@ -107,9 +120,21 @@ test("na impressão os cartões do vocabulário saem sem espelhar, com termo e d
   await expect(cards.first().locator(".flip-inner")).toHaveCSS("transform", "none");
 });
 
-test("a barra do topo cabe no celular", async ({ page }) => {
+test("seletor de idioma troca entre as versões exportadas", async ({ page }) => {
+  await page.goto(translated);
+  await expect(page.locator(".langs a[aria-current]")).toHaveText("PT");
+  await page.locator(".langs a", { hasText: "EN" }).click();
+  await expect(page).toHaveURL(/index\.en\.html/);
+  await expect(page.locator(".langs a[aria-current]")).toHaveText("EN");
+  await expect(page.locator(".slide.is-active")).toContainText("Welcome");
+  await expect(page.locator(".slide.is-active")).toContainText("EN ");
+  await expect(page.locator(".untranslated")).toHaveCount(0);
+});
+
+test("a barra do topo cabe no celular, com o seletor de idioma", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
-  await page.goto(deck);
+  await page.goto(translated);
+  await expect(page.locator(".langs a")).toHaveCount(2);
   const overflow = await page.locator(".topbar").evaluate((bar) => Math.max(...[...bar.children].map((el) => el.getBoundingClientRect().right)) - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

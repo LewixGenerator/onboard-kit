@@ -1,3 +1,4 @@
+import { cliLang, type Lang } from "./i18n";
 import type { Subproject } from "./detect";
 import type { Framework, OnboardingData } from "./types";
 import { SCHEMA_URL } from "./version";
@@ -217,9 +218,16 @@ export function createTemplate({ framework, language = "pt-BR", subprojects = []
  * Frase para colar na IA local. Com `init`, pede para a IA criar o arquivo antes
  * (usado quando o onboarding.json ainda não existe).
  */
-export function aiPrompt(file = "onboarding.json", options: { init?: boolean } = {}): string {
+export function aiPrompt(file = "onboarding.json", options: { init?: boolean; lang?: Lang } = {}): string {
+  const tr = (pt: string, en: string) => ((options.lang ?? cliLang()) === "en" ? en : pt);
   if (options.init) {
-    return `Rode "npx onboarding-kit init" na raiz deste projeto para criar o ${file}. Depois leia o arquivo e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.`;
+    return tr(
+      `Rode "npx onboarding-kit init" na raiz deste projeto para criar o ${file}. Depois leia o arquivo e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.`,
+      `Run "npx onboarding-kit init --lang en" at the root of this project to create ${file}. Then read the file and follow the instructions in "_instructions" to fill it in based on this repository. When done, run "npx onboarding-kit validate" and fix whatever it reports.`,
+    );
   }
-  return `Leia o arquivo ${file} e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.`;
+  return tr(
+    `Leia o arquivo ${file} e siga as instruções em "_instructions" para preenchê-lo com base neste repositório. No final, rode "npx onboarding-kit validate" e corrija o que ele apontar.`,
+    `Read ${file} and follow the instructions in "_instructions" to fill it in based on this repository. When done, run "npx onboarding-kit validate" and fix whatever it reports.`,
+  );
 }

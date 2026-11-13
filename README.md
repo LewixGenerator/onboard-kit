@@ -90,6 +90,8 @@ O `init` detecta o framework e liga a rota `/onboarding` do jeito nativo de cada
 
 Em todos os casos, o `init` também adiciona o script `onboarding` ao `package.json` (`npm run onboarding`, `pnpm onboarding`…), que abre a apresentação em `localhost:4321` sem precisar subir o app. Use `--no-script` para pular.
 
+No terminal, o `init` pergunta em que idioma você quer o onboarding (Enter = português). Para pular a pergunta, use `--lang pt` ou `--lang en`. Toda a CLI fala português por padrão; `--lang en` ou `ONBOARDING_KIT_LANG=en` troca para inglês.
+
 Se a detecção errar, force com `--framework <id>`: `next`, `nuxt`, `sveltekit`, `astro`, `remix`, `gatsby`, `nest`, `adonis`, `express`, `fastify`, `koa`, `hono`, `elysia`, `angular`, `vite`, `cra`, `webpack`, `react-native`, `electron`, `library` ou `node`. Projetos Deno sem `package.json` são lidos pelo `deno.json`.
 
 Depois, envie isto para a sua IA:
@@ -114,7 +116,8 @@ Se você abrir `/onboarding` antes da IA terminar, a página mostra o prompt pro
 | `agents` | Ensina sua IA a manter o onboarding em dia: adiciona um trecho ao `AGENTS.md` (e ao `CLAUDE.md` e `.github/copilot-instructions.md`, se existirem), cria o comando `/onboarding` do Claude Code e a regra do Cursor |
 | `mcp` | Servidor MCP (stdio) com as ferramentas `onboarding_facts`, `onboarding_status`, `onboarding_validate` e outras, para a IA receber JSON em vez de ler o terminal |
 | `serve` | Abre a apresentação em `http://localhost:4321` (`--port` para mudar). Mostra o projeto, os números do deck, a cobertura e as trilhas, e avisa no terminal cada vez que a IA grava o `onboarding.json` |
-| `export` | Gera um HTML único e estático da apresentação (`--out`, padrão `onboarding.html`), para GitHub Pages, intranet ou anexo. `--offline` embute o Mermaid e as fontes; cada trilha vira um arquivo ao lado (`onboarding.frontend.html`) |
+| `translate` | Traduz o onboarding para o outro idioma sem reler o código: `--to en` grava em `onboarding.en.todo.json` só os textos novos ou alterados desde a última tradução, a IA traduz esse arquivo e o próximo `translate` guarda o resultado em `onboarding.en.json`. `--ai` faz tudo com a IA instalada |
+| `export` | Gera um HTML único e estático da apresentação (`--out`, padrão `onboarding.html`), para GitHub Pages, intranet ou anexo. `--offline` embute o Mermaid e as fontes; cada trilha vira um arquivo ao lado (`onboarding.frontend.html`), e cada idioma traduzido também (`onboarding.en.html`) |
 
 ## Mantendo o onboarding em dia
 
@@ -149,7 +152,7 @@ jobs:
 
 ### Servidor MCP
 
-Com o MCP, a IA chama `facts`, `status`, `validate` e a correção de evidências como ferramentas e recebe JSON estruturado:
+Com o MCP, a IA chama `facts`, `status`, `validate`, a correção de evidências e a tradução (`onboarding_translate`) como ferramentas e recebe JSON estruturado:
 
 ```bash
 claude mcp add onboarding-kit -- npx onboarding-kit mcp
@@ -171,7 +174,9 @@ Os capítulos entram com uma cortina animada, os elementos aparecem em cascata, 
 
 Navegação por ← →, espaço, swipe no celular ou pelos segmentos coloridos no topo. `O` abre o índice. O progresso e as tarefas marcadas ficam salvos no navegador. Tem tema claro e escuro. Capítulos sem conteúdo são pulados e listas longas viram vários slides.
 
-Cada slide tem um link direto, para mandar a parte certa para quem pergunta: `/onboarding#/arquitetura`, `/onboarding#/arquitetura/2`. O botão **Imprimir / PDF** (no índice e no final) gera um slide por página. A apresentação fala português, inglês e espanhol, conforme `meta.language`.
+Cada slide tem um link direto, para mandar a parte certa para quem pergunta: `/onboarding#/arquitetura`, `/onboarding#/arquitetura/2`. O botão **Imprimir / PDF** (no índice e no final) gera um slide por página. A interface da apresentação fala português, inglês e espanhol, conforme `meta.language`.
+
+- **Português ou inglês:** o seletor PT | EN no topo troca o idioma (`/onboarding?lang=en`). O que já foi traduzido com `translate` aparece no outro idioma; o que falta fica no original, com um aviso e o comando para traduzir. Como a tradução é incremental, a IA só traduz o que mudou, sem gastar tokens relendo o projeto.
 
 - **Busca:** `Ctrl/Cmd+K` ou `/` procura em todos os slides, sem diferenciar acentos.
 - **Trechos de código:** os passos do tour, as regras de negócio e os cuidados mostram as linhas citadas na evidência (`arquivo.ts:42`), com a linha destacada.
@@ -296,7 +301,7 @@ node dist/cli/index.js serve   # mostra o onboarding do próprio onboarding-kit
 
 A CI roda os testes no Node 18, 20 e 22 e também no Windows e no macOS, mais os testes de navegador. A cada push na `master`, o workflow `pages.yml` publica a [demo](https://lewixgenerator.github.io/onboard-kit/) (o onboarding do próprio kit) e o badge de cobertura.
 
-As mensagens da CLI seguem o idioma do sistema (português ou inglês). Para escolher, use `ONBOARDING_KIT_LANG=pt` ou `en`.
+As mensagens da CLI e o conteúdo gerado são em português por padrão. Para inglês, use `--lang en` no `init` ou `ONBOARDING_KIT_LANG=en`.
 
 ### Publicação
 

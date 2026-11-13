@@ -16,6 +16,7 @@ O \`${file}\` explica este repositório para quem está chegando e aparece em \`
 - \`npx onboarding-kit status --fix\` corrige sozinho as evidências que só mudaram de linha ou de arquivo.
 - No fim, rode \`npx onboarding-kit validate\` e corrija o que ele apontar.
 - Nunca copie segredos (valores de .env, tokens, senhas) para o arquivo.
+- Se houver tradução (ex.: \`onboarding.en.json\`), rode depois \`npx onboarding-kit translate --to en\` e traduza só o que ele listar.
 - Se o servidor MCP \`onboarding-kit\` estiver configurado, prefira as ferramentas \`onboarding_status\`, \`onboarding_fix_evidence\` e \`onboarding_validate\` aos comandos acima.
 ${END}`;
 }

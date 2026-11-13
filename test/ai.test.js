@@ -31,7 +31,7 @@ test("MCP: initialize, tools/list e tools/call pelo stdio", async () => {
   send({ method: "notifications/initialized" });
   send({ id: 2, method: "tools/list" });
   const names = (await waitFor(2)).result.tools.map((t) => t.name);
-  assert.deepEqual(names, ["onboarding_init", "onboarding_instructions", "onboarding_facts", "onboarding_status", "onboarding_fix_evidence", "onboarding_validate"]);
+  assert.deepEqual(names, ["onboarding_init", "onboarding_instructions", "onboarding_facts", "onboarding_status", "onboarding_fix_evidence", "onboarding_translate", "onboarding_validate"]);
   send({ id: 3, method: "tools/call", params: { name: "onboarding_validate", arguments: {} } });
   assert.equal((await waitFor(3)).result.isError, true);
   send({ id: 4, method: "tools/call", params: { name: "onboarding_init", arguments: {} } });

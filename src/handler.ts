@@ -113,7 +113,7 @@ export async function handleOnboarding(req: CoreRequest, options: OnboardingOpti
   const method = (req.method ?? "GET").toUpperCase();
   if (method === "POST") return options.feedback === false ? text(404, "Not Found") : saveFeedback(req, options);
   if (method !== "GET" && method !== "HEAD") return text(405, "Method Not Allowed", { Allow: "GET, POST" });
-  const page = await renderOnboardingPage(options.file, { track: queryParam(req.url, "trilha", "track", "pista"), feedback: options.feedback !== false });
+  const page = await renderOnboardingPage(options.file, { track: queryParam(req.url, "trilha", "track", "pista"), lang: queryParam(req.url, "lang", "idioma"), feedback: options.feedback !== false });
   return { status: page.status, headers: { ...HTML_HEADERS }, body: method === "HEAD" ? "" : page.html };
 }
 
