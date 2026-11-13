@@ -91,6 +91,10 @@ const SECTION_INSTRUCTIONS = {
     "Opcional. Quando o projeto tem públicos diferentes (frontend, backend, mobile, dados, QA, produto), crie 2 a 4 trilhas; num projeto pequeno deixe []. id: minúsculas com hífen, vai na URL (/onboarding?trilha=frontend). name e description curtos. chapters: os capítulos que a trilha mostra, entre why, business, product, language, rules, stack, architecture, setup, conventions, workflow, people, quality, docs, tours, gotchas, todos, mission, cheatsheet (vazio = todos). paths: os subprojetos (path) da trilha (vazio = todos).",
   people:
     "Só preencha se esta seção existir no arquivo (o time pediu com `init --people`). Use `npx onboarding-kit facts --people`, que lista o CODEOWNERS e quem mais fez commits em cada área no último ano. Até 8 pessoas. name; role só se estiver documentado; areas: pastas ou subprojetos que a pessoa conhece; contact: canal do time ou @usuario do GitHub. NUNCA inclua e-mail, telefone ou dados pessoais.",
+  executive:
+    "Visão para P.O. e CTO. Os números (releases, atividade, concentração de conhecimento, dívida, testes, dependências, arquivos mais alterados) e as integrações detectadas o kit calcula sozinho e mostra em `npx onboarding-kit facts`: não copie números para cá. summary: 2 ou 3 frases sobre em que pé o projeto está (maturidade, foco atual, o que preocupa), com base nesses fatos. risks: até 3 riscos reais para o negócio ou para o time (ex.: conhecimento concentrado numa pessoa, integração crítica sem teste, dependência descontinuada), cada um com evidence. integrations: para cada serviço externo que importa (os detectados e os que você achar no código), name igual ao detectado e role em uma frase (para que o projeto usa), com evidence. Não fale de prazos, roadmap ou métricas de negócio que não estejam no repositório.",
+  openQuestions:
+    "Até 6 perguntas que o código não responde e que alguém novo deveria fazer ao time (ex.: 'Qual o SLA do checkout?', 'Por que existem dois clientes HTTP?'). why: o que você viu que levantou a dúvida. Use esta seção em vez de chutar: quando não der para comprovar algo, pergunte.",
   firstTasks:
     "3 a 5 tarefas pequenas e seguras para alguém novo começar (ex.: um teste faltando, um TODO simples, uma melhoria de mensagem de erro), com os arquivos envolvidos.",
 };
@@ -133,7 +137,8 @@ export function createTemplate({ framework, language = "pt-BR", subprojects = []
       ],
       rules: [
         "Escreva todo o conteúdo no idioma de meta.language.",
-        "Nunca invente. Toda afirmação sobre stack, convenções, regras, decisões e armadilhas precisa de evidence com arquivos reais, no formato caminho/relativo ou caminho/relativo:linha. Se não encontrar evidência, não inclua o item.",
+        "Nunca invente. Toda afirmação sobre stack, convenções, regras, decisões e armadilhas precisa de evidence com arquivos reais, no formato caminho/relativo ou caminho/relativo:linha. Se não encontrar evidência, não inclua o item: transforme a dúvida em uma pergunta em openQuestions.",
+        "Nos itens com evidence, preencha confidence: \"verified\" quando a linha citada comprova sozinha o que você escreveu; \"inferred\" quando você deduziu juntando vários arquivos. Prefira citar a linha exata (caminho:linha) e mencionar no texto, entre crases, o nome do símbolo que está nela (ex.: `checkPassword`): o validate confere se ele aparece ali.",
         "Caminhos são relativos à raiz do repositório e usam '/'.",
         "Nunca copie segredos: valores de .env, tokens, chaves de API, senhas ou URLs com credenciais. Em envVars descreva apenas o nome e a finalidade.",
         "Mantenha o JSON válido. Não renomeie nem remova chaves e não apague _instructions: ele é usado nas próximas atualizações.",
@@ -195,6 +200,8 @@ export function createTemplate({ framework, language = "pt-BR", subprojects = []
     gotchas: [{ title: "", description: "", evidence: [""] }],
     decisions: [{ title: "", context: "", decision: "", evidence: [""] }],
     firstTasks: [{ title: "", description: "", files: [""] }],
+    executive: { summary: "", risks: [{ title: "", description: "", evidence: [""] }], integrations: [] },
+    openQuestions: [],
     workflow: {
       branching: { model: "", mainBranch: "", description: "", branches: [{ pattern: "", purpose: "" }], evidence: [""] },
       commits: { convention: "", format: "", examples: [""], enforcedBy: "", evidence: [""] },

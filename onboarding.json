@@ -1,35 +1,49 @@
 {
+  "$schema": "https://unpkg.com/onboarding-kit@0.6.0/dist/onboarding.schema.json",
   "_instructions": {
     "readme": "Você é a IA local deste projeto. Sua tarefa é preencher este arquivo analisando o código do repositório. O resultado será exibido em /onboarding para quem está chegando no projeto.",
     "steps": [
       "1. Leia este arquivo inteiro antes de começar, incluindo _instructions.sections.",
-      "2. Explore o repositório: package.json e lockfile, README e docs, arquivos de config (tsconfig, eslint, prettier, next.config, nest-cli.json, docker, CI), código-fonte, testes e .env.example.",
+      "2. Rode `npx onboarding-kit facts` para ver os fatos coletados do git e do código (branches, padrão dos commits, CI, hooks, testes, sinais de arquitetura, TODOs e observações em comentários). Depois explore o repositório: package.json (ou deno.json) e lockfile, README e docs, arquivos de config (tsconfig, eslint/biome, prettier, o config do framework e do bundler, docker, CI), código-fonte, testes e .env.example.",
       "3. Preencha cada seção seguindo _instructions.sections.<seção> e _instructions.framework. Os arrays vêm com um item modelo em branco: substitua-o por itens reais, quantos forem necessários. Se não houver nada real para a seção, deixe o array vazio ([]).",
       "4. Preencha meta: status = \"filled\", generatedAt = data e hora atuais em ISO 8601, generatedBy = nome da ferramenta e do modelo, commit = saída de `git rev-parse HEAD` (vazio se não houver git).",
       "5. Rode `npx onboarding-kit validate` e corrija tudo o que ele apontar até passar sem erros."
     ],
     "rules": [
       "Escreva todo o conteúdo no idioma de meta.language.",
-      "Nunca invente. Toda afirmação sobre stack, convenções, regras, decisões e armadilhas precisa de evidence com arquivos reais, no formato caminho/relativo ou caminho/relativo:linha. Se não encontrar evidência, não inclua o item.",
+      "Nunca invente. Toda afirmação sobre stack, convenções, regras, decisões e armadilhas precisa de evidence com arquivos reais, no formato caminho/relativo ou caminho/relativo:linha. Se não encontrar evidência, não inclua o item: transforme a dúvida em uma pergunta em openQuestions.",
+      "Nos itens com evidence, preencha confidence: \"verified\" quando a linha citada comprova sozinha o que você escreveu; \"inferred\" quando você deduziu juntando vários arquivos. Prefira citar a linha exata (caminho:linha) e mencionar no texto, entre crases, o nome do símbolo que está nela (ex.: `checkPassword`): o validate confere se ele aparece ali.",
       "Caminhos são relativos à raiz do repositório e usam '/'.",
       "Nunca copie segredos: valores de .env, tokens, chaves de API, senhas ou URLs com credenciais. Em envVars descreva apenas o nome e a finalidade.",
       "Mantenha o JSON válido. Não renomeie nem remova chaves e não apague _instructions: ele é usado nas próximas atualizações.",
-      "Escreva de forma curta, direta e humana, como um colega explicando o projeto: quem lê é uma pessoa no primeiro dia. O conteúdo vira slides, então prefira frases curtas a parágrafos longos.",
-      "Se meta.status já for \"filled\", você está ATUALIZANDO: use `git diff <meta.commit>..HEAD` para revisar apenas o que mudou, mantenha o restante e atualize meta.commit e meta.generatedAt."
+      "Escreva de forma curta, direta e humana, como um colega explicando o projeto: quem lê é uma pessoa recém-contratada que precisa entender a regra de negócio e os padrões do time. O conteúdo vira slides, então prefira frases curtas a parágrafos longos.",
+      "Menos é mais: respeite os limites de itens de cada seção e escolha o que a pessoa precisa na primeira semana. Um item ótimo vale mais que cinco medianos.",
+      "Se meta.status já for \"filled\", você está ATUALIZANDO: rode `npx onboarding-kit status --fix` para ver quais itens citam arquivos que mudaram desde meta.commit (e corrigir as linhas que só andaram), revise apenas esses itens com `git diff <meta.commit> -- <arquivo>`, mantenha o restante e atualize meta.commit e meta.generatedAt."
     ],
-    "framework": "Projeto Node.js. Identifique o ponto de entrada (main e scripts do package.json), o framework HTTP (Express, Fastify, Koa ou http nativo), a organização de rotas e middlewares, o acesso a dados, jobs/workers e scripts utilitários.",
+    "framework": "Biblioteca ou CLI publicada. Explique a API pública (exports do package.json, bin), como o código está organizado por trás dela, o build (tsc, tsup, rollup, unbuild), a matriz de compatibilidade (Node, ESM/CJS, browsers), o versionamento e o processo de release. Em 'business', explique quem consome a biblioteca e por quê.",
     "sections": {
       "project": "name: nome do projeto. tagline: uma frase que resume o projeto. purpose: 2 a 4 frases sobre o problema que ele resolve e para quem. audience: quem usa o produto (usuários finais, não devs). status: fase do projeto (ex.: em produção, MVP, em migração). repoUrl: URL do repositório (git remote get-url origin, convertida para https), vazio se não houver.",
       "business": "Explique o negócio para alguém que nunca ouviu falar do produto. model: como o produto gera valor ou receita (assinatura, comissão, venda, uso interno...). Baseie-se em planos, pagamentos, roles e docs do repositório; se não der para inferir a receita, descreva o valor gerado sem inventar. valueProposition: o que o produto resolve para quem usa, em 1 ou 2 frases. actors: os perfis que participam (tipos de usuário, roles, sistemas parceiros), com evidence de onde aparecem no código. flows: 1 a 3 jornadas principais (ex.: 'Do cadastro à primeira compra'), cada uma com 3 a 6 passos curtos e evidence.",
-      "gettingStarted": "prerequisites: o que precisa estar instalado (versão do Node, banco, Docker...). setup: passos em ordem para rodar localmente pela primeira vez. commands: scripts úteis do package.json com o comando exato e o que fazem. envVars: variáveis de ambiente (de .env.example, código ou docs) com nome, para que servem e se são obrigatórias. NUNCA inclua valores.",
+      "gettingStarted": "prerequisites: o que precisa estar instalado (versão do Node, Bun ou Deno, gerenciador de pacotes, banco, Docker, Xcode/Android Studio em apps mobile...). setup: passos em ordem para rodar localmente pela primeira vez. commands: scripts úteis do package.json com o comando exato e o que fazem. envVars: variáveis de ambiente (de .env.example, código ou docs) com nome, para que servem e se são obrigatórias. NUNCA inclua valores.",
       "stack": "Uma entrada por tecnologia relevante (linguagem, framework, banco, ORM, auth, testes, lint, deploy, filas, libs centrais). category: ex. framework, database, orm, testing, styling, infra. version: do package.json/lockfile. why: para que é usada NESTE projeto. evidence: onde aparece (package.json, arquivo de config ou de uso).",
-      "architecture": "summary: como o código está organizado e como uma requisição/ação flui pelo sistema. diagram: diagrama Mermaid (graph TD ou flowchart) com os principais módulos e integrações externas, sem cercas ```. modules: pastas ou módulos principais com path e responsibility.",
+      "architecture": "style: o estilo arquitetural em uma linha (ex.: 'Monolito modular em camadas', 'Microsserviços que conversam por fila', 'Serverless', 'Arquitetura hexagonal'); use os sinais de `facts` (monorepo, Dockerfiles, pastas de camadas, libs de mensageria) e diga em que se baseou. patterns: até 5 padrões que dão forma ao código e que a pessoa vai encontrar logo (Repository, injeção de dependência, CQRS, eventos de domínio, Server Actions...), cada um com description curta de como aparece aqui e evidence. summary: como o código está organizado e como uma requisição/ação flui pelo sistema. diagram: diagrama Mermaid (graph TD ou flowchart) com os principais módulos e integrações externas, sem cercas ```. modules: pastas ou módulos principais com path e responsibility.",
+      "subprojects": "Só em repositórios com mais de um projeto (monorepo com workspaces ou pastas como frontend/ e backend/ com package.json próprio); num projeto único deixe []. Os itens já vêm com o que o onboarding-kit detectou (name, path, framework, dependsOn): confira, remova os que não importam (exemplos, fixtures) e acrescente os que faltarem. kind: app, serviço, biblioteca compartilhada, config, ferramenta... description: o que o projeto faz e quem o usa, em 1 ou 2 frases. dependsOn: names de outros subprojetos que ele importa. command: o comando para rodar só ele a partir da raiz (ex.: 'pnpm --filter web dev', 'npm run dev -w apps/api', 'nx serve api', 'turbo dev --filter=web'), vazio se ele não roda sozinho. Use os subprojetos também em architecture (diagrama com um nó por app e as dependências entre eles), gettingStarted.commands e features.entryPoints.",
       "conventions": "Padrões de código que alguém novo precisa seguir: nomenclatura, estrutura de pastas, tratamento de erro, validação, padrões de componentes, testes, commits, lint/format. example: trecho curto real ou ilustrativo. evidence obrigatória.",
       "domain": "glossary: termos do negócio que aparecem no código e nas telas, com definição em linguagem simples. businessRules: regras de negócio macro (ex.: quem pode fazer o quê, limites, cálculos, estados de um pedido), com evidence apontando onde a regra está implementada.",
       "features": "Funcionalidades do produto do ponto de vista do usuário. entryPoints: arquivos onde a feature começa (página, controller, rota). status: ex. estável, beta, em desenvolvimento, descontinuada.",
       "tours": "1 a 3 tours guiados pelo código, ex.: 'Como uma requisição é atendida', 'Ciclo de vida de um pedido'. Cada step aponta um arquivo (com linha quando ajudar) e explica o que olhar ali. Ordene os steps na sequência de leitura.",
-      "gotchas": "Armadilhas e cuidados: comportamentos não óbvios, partes frágeis, workarounds, TODOs/FIXMEs importantes, coisas que costumam quebrar. Só inclua o que tiver evidence.",
+      "gotchas": "Até 6 armadilhas: comportamentos não óbvios, partes frágeis, workarounds, coisas que costumam quebrar. TODOs vão em `todos`, não aqui. Só inclua o que tiver evidence.",
+      "workflow": "Como o código chega em produção, a partir dos fatos de `npx onboarding-kit facts` (branches, commits recentes, CI, hooks) e de CONTRIBUTING/README. branching: model (GitHub Flow, GitFlow, trunk-based...; só afirme o modelo se o histórico ou a doc mostrarem), mainBranch, description em 1 ou 2 frases, branches: até 6 padrões de nome (ex.: 'feature/<ticket>-<descricao>') com purpose. commits: convention (ex.: Conventional Commits) só se a maioria dos commits seguir ou houver commitlint; format: o molde da mensagem; examples: 2 a 4 mensagens REAIS do git log; enforcedBy: commitlint/husky/etc. ou vazio. pullRequests: process (quem revisa, quantas aprovações, squash ou merge, CODEOWNERS) e checklist: até 5 itens do template de PR. release: process (como vira versão/deploy: tags, semantic-release, changesets, deploy automático no merge...) e environments: ambientes com name, trigger (ex.: 'merge na main') e description. Deixe vazio o que não der para comprovar.",
+      "quality": "testing.approach: como o time testa, em 1 ou 2 frases (ex.: 'Testes unitários ao lado do código com Vitest; e2e com Playwright nos fluxos de compra'). Só diga TDD se estiver documentado ou se o histórico mostrar testes chegando junto/antes do código. Use as contagens de `facts` (arquivos de teste x código) para dar a real, sem julgamento. location: onde ficam os testes. command: comando exato para rodar. checks: até 6 verificações automáticas (lint, typecheck, testes na CI, hooks de pre-commit, análise de segurança, preview deploy) com when (pre-commit, PR, merge, deploy) e evidence.",
+      "docs": "Até 6 documentos que um dev novo deve ler na primeira semana (README, CONTRIBUTING, ADRs, docs/, guias de API, runbooks), do mais importante para o menos. file: caminho. why: o que a pessoa aprende ali, em 1 frase. Não liste documentos vazios ou genéricos.",
+      "codeNotes": "Até 6 observações deixadas em comentários no código que alguém novo PRECISA conhecer: avisos (WARNING/IMPORTANT/NOTE), APIs @deprecated que não devem ser usadas, regras explicadas em comentário. Use a lista de marcadores de `facts`. title curto, description em linguagem simples, file com linha, kind (NOTE, IMPORTANT, WARNING, DEPRECATED).",
+      "todos": "Até 8 TODOs/FIXMEs/HACKs que importam para quem está chegando (dívidas técnicas que afetam regra de negócio, partes provisórias, coisas que bloqueiam upgrades), escolhidos da lista de `facts`. Ignore TODOs triviais. title curto, description do que falta, file com linha, kind (TODO, FIXME, HACK, XXX, BUG), impact: por que isso importa para a pessoa nova. A apresentação já mostra a contagem total sozinha.",
       "decisions": "Decisões de arquitetura perceptíveis no código ou na documentação (ex.: por que tal ORM, monorepo, cache, autenticação). context: o problema. decision: o que foi escolhido. Não invente motivos: se o motivo não está documentado, descreva só a decisão.",
+      "brand": "Identidade visual, usada para a apresentação ter a cara da plataforma. primaryColor: a cor principal da marca em hex (#RRGGBB). Procure em tailwind.config (theme.extend.colors: brand, primary), no @theme do Tailwind v4 (--color-primary, --color-brand), em variáveis CSS de globals.css/index.css (--primary, --brand; converta HSL/OKLCH para hex), em temas de MUI/Chakra/styled-components (palette.primary.main), Vuetify, Quasar, UnoCSS, Panda, Nuxt UI (app.config: ui.primary), Angular Material, em blocos <style> de App.vue/+layout.svelte/Layout.astro, no app.json do Expo e no theme_color do manifest. palette: 1 a 4 outras cores da marca em hex (secundária, destaque). Ignore branco, preto e cinzas quando houver uma cor de verdade. logo: caminho do logo do projeto (procure em public/, static/, assets/, src/assets/, src/lib/assets/, app/icon.*, resources/ e build/ no Electron, assets/ no Expo); prefira SVG e a versão para fundo claro; ignore os arquivos de exemplo do framework (next.svg, vercel.svg, vite.svg, react.svg, nuxt.svg, svelte.svg, astro.svg...). favicon: caminho do favicon (public/favicon.ico, app/favicon.ico, app/icon.png). evidence: arquivos de onde tirou as cores. Deixe vazio o que não encontrar: o onboarding-kit tenta detectar sozinho.",
+      "tracks": "Opcional. Quando o projeto tem públicos diferentes (frontend, backend, mobile, dados, QA, produto), crie 2 a 4 trilhas; num projeto pequeno deixe []. id: minúsculas com hífen, vai na URL (/onboarding?trilha=frontend). name e description curtos. chapters: os capítulos que a trilha mostra, entre why, business, product, language, rules, stack, architecture, setup, conventions, workflow, people, quality, docs, tours, gotchas, todos, mission, cheatsheet (vazio = todos). paths: os subprojetos (path) da trilha (vazio = todos).",
+      "people": "Só preencha se esta seção existir no arquivo (o time pediu com `init --people`). Use `npx onboarding-kit facts --people`, que lista o CODEOWNERS e quem mais fez commits em cada área no último ano. Até 8 pessoas. name; role só se estiver documentado; areas: pastas ou subprojetos que a pessoa conhece; contact: canal do time ou @usuario do GitHub. NUNCA inclua e-mail, telefone ou dados pessoais.",
+      "executive": "Visão para P.O. e CTO. Os números (releases, atividade, concentração de conhecimento, dívida, testes, dependências, arquivos mais alterados) e as integrações detectadas o kit calcula sozinho e mostra em `npx onboarding-kit facts`: não copie números para cá. summary: 2 ou 3 frases sobre em que pé o projeto está (maturidade, foco atual, o que preocupa), com base nesses fatos. risks: até 3 riscos reais para o negócio ou para o time (ex.: conhecimento concentrado numa pessoa, integração crítica sem teste, dependência descontinuada), cada um com evidence. integrations: para cada serviço externo que importa (os detectados e os que você achar no código), name igual ao detectado e role em uma frase (para que o projeto usa), com evidence. Não fale de prazos, roadmap ou métricas de negócio que não estejam no repositório.",
+      "openQuestions": "Até 6 perguntas que o código não responde e que alguém novo deveria fazer ao time (ex.: 'Qual o SLA do checkout?', 'Por que existem dois clientes HTTP?'). why: o que você viu que levantou a dúvida. Use esta seção em vez de chutar: quando não der para comprovar algo, pergunte.",
       "firstTasks": "3 a 5 tarefas pequenas e seguras para alguém novo começar (ex.: um teste faltando, um TODO simples, uma melhoria de mensagem de erro), com os arquivos envolvidos."
     }
   },
@@ -37,43 +51,54 @@
     "schemaVersion": "1",
     "status": "filled",
     "language": "pt-BR",
-    "framework": "node",
-    "generatedAt": "2026-11-12T02:06:00.028Z",
+    "framework": "library",
+    "generatedAt": "2026-11-13T12:59:26.724Z",
     "generatedBy": "Claude Code (claude-opus-5-5)",
-    "commit": ""
+    "commit": "7e767dfe061681a08d1c306d92492f00ba9173c5"
   },
   "project": {
     "name": "onboarding-kit",
-    "tagline": "Onboarding de projetos gerado pela sua IA local e exibido em /onboarding.",
-    "purpose": "Pacote npm que cria um `onboarding.json` em branco com instruções para a IA local do desenvolvedor. A IA analisa o repositório e preenche o arquivo; o pacote valida o resultado e mostra uma apresentação do projeto em `/onboarding`, dentro do próprio app (Next, Nest ou Node).",
-    "audience": "Times de desenvolvimento que recebem pessoas novas e querem um panorama do projeto sem escrever a documentação à mão.",
-    "status": "MVP",
-    "repoUrl": ""
+    "tagline": "Onboarding de projetos escrito pela sua IA e apresentado em /onboarding",
+    "purpose": "Pacote npm que cria um `onboarding.json` com instruções para a IA que o time já usa. A IA analisa o repositório e preenche o arquivo; o kit valida, mantém em dia com o código e mostra uma apresentação em slides dentro do próprio app, em qualquer framework JavaScript.",
+    "audience": "Times de desenvolvimento que recebem gente nova e querem um panorama do projeto sem escrever documentação à mão.",
+    "status": "Em evolução, publicado no npm",
+    "repoUrl": "https://github.com/LewixGenerator/onboard-kit"
   },
   "business": {
-    "model": "Pacote open source e gratuito no npm. O valor está em reduzir o tempo até o primeiro PR de quem entra num time.",
-    "valueProposition": "Uma apresentação do projeto sempre atualizada, escrita pela IA que o time já usa, sem ninguém precisar manter documentação à mão.",
+    "model": "Open source (MIT) e gratuito no npm. O valor está em reduzir o tempo até o primeiro PR de quem chega num time.",
+    "valueProposition": "Uma apresentação do projeto que não envelhece: cada afirmação aponta para o código, e o kit avisa quando o código muda.",
     "actors": [
       {
         "name": "Dev novo no time",
-        "description": "Abre /onboarding no primeiro dia e percorre o tour.",
+        "description": "Abre /onboarding no primeiro dia, escolhe a trilha e percorre o tour.",
         "evidence": [
-          "src/render/index.ts"
-        ]
+          "src/render/index.ts:295"
+        ],
+        "confidence": "inferred"
       },
       {
         "name": "Tech lead",
-        "description": "Roda o init, pede para a IA preencher e revisa o resultado no PR.",
+        "description": "Roda o `init`, pede para a IA preencher, revisa no PR e registra a revisão com `review`.",
         "evidence": [
-          "src/cli/index.ts:160"
-        ]
+          "src/cli/index.ts:458"
+        ],
+        "confidence": "inferred"
       },
       {
         "name": "IA local",
-        "description": "Lê as instruções do JSON, analisa o repositório e preenche os campos.",
+        "description": "Segue as instruções do JSON, usa `facts` e `status` e preenche os campos.",
         "evidence": [
-          "src/template.ts:44"
-        ]
+          "src/template.ts:53"
+        ],
+        "confidence": "inferred"
+      },
+      {
+        "name": "P.O. ou CTO",
+        "description": "Usa a trilha Gestão: negócio, saúde do projeto, integrações e riscos.",
+        "evidence": [
+          "src/render/index.ts:209"
+        ],
+        "confidence": "inferred"
       }
     ],
     "flows": [
@@ -81,20 +106,37 @@
         "name": "Do zero ao onboarding publicado",
         "steps": [
           "`npx onboarding-kit init`",
-          "IA preenche o JSON",
+          "A IA preenche o JSON",
           "`validate` aponta o que falta",
-          "Time revisa no PR",
-          "Dev novo abre /onboarding"
+          "O time revisa no PR",
+          "Quem chega abre /onboarding"
         ],
         "evidence": [
-          "src/cli/index.ts"
-        ]
+          "src/cli/index.ts:458",
+          "src/cli/index.ts:578"
+        ],
+        "confidence": "inferred"
+      },
+      {
+        "name": "Mantendo em dia",
+        "steps": [
+          "O código muda",
+          "`status` lista o que envelheceu",
+          "A IA revisa só esses itens",
+          "`translate` traduz só o que mudou"
+        ],
+        "evidence": [
+          "src/status.ts:117",
+          "src/translate.ts:89"
+        ],
+        "confidence": "inferred"
       }
     ]
   },
   "gettingStarted": {
     "prerequisites": [
-      "Node.js 18 ou mais novo"
+      "Node.js 18 ou mais novo",
+      "Chrome ou Chromium para os testes de navegador (opcional)"
     ],
     "setup": [
       "`npm install`",
@@ -104,12 +146,17 @@
       {
         "name": "build",
         "command": "npm run build",
-        "description": "Compila `src/` para `dist/` com o tsc."
+        "description": "Compila `src/` para `dist/` e gera o JSON Schema."
       },
       {
         "name": "test",
         "command": "npm test",
         "description": "Compila e roda os testes com `node --test`."
+      },
+      {
+        "name": "test:e2e",
+        "command": "npm run test:e2e",
+        "description": "Testa o deck exportado no navegador com Playwright (`PW_CHANNEL=chrome` usa o Chrome instalado)."
       },
       {
         "name": "serve",
@@ -119,13 +166,23 @@
     ],
     "envVars": [
       {
+        "name": "ONBOARDING_PASSWORD",
+        "description": "Pede senha para abrir /onboarding e libera a rota em produção.",
+        "required": false
+      },
+      {
+        "name": "ONBOARDING_KIT_LANG",
+        "description": "Idioma das mensagens da CLI: `en` para inglês; o padrão é português.",
+        "required": false
+      },
+      {
         "name": "NODE_ENV",
-        "description": "Em `production` as rotas /onboarding ficam desligadas por padrão.",
+        "description": "Em `production`, a rota fica desligada sem senha.",
         "required": false
       },
       {
         "name": "NO_COLOR",
-        "description": "Desliga as cores do CLI.",
+        "description": "Desliga as cores da CLI.",
         "required": false
       }
     ]
@@ -135,116 +192,153 @@
       "name": "TypeScript",
       "category": "linguagem",
       "version": "5.6",
-      "why": "Todo o código-fonte; compilado para CommonJS para funcionar com Nest e Next.",
+      "why": "Todo o código; compilado para CommonJS para funcionar em apps Nest e Next.",
       "evidence": [
-        "package.json:69",
-        "tsconfig.json"
-      ]
+        "package.json:109",
+        "tsconfig.json:4"
+      ],
+      "confidence": "verified"
     },
     {
       "name": "Node.js (sem dependências)",
       "category": "runtime",
       "version": ">=18",
-      "why": "O pacote não tem dependências em runtime: só módulos nativos (fs, http, child_process).",
+      "why": "Só módulos nativos (fs, http, child_process, crypto): nada é instalado junto no projeto de quem usa.",
       "evidence": [
         "package.json"
-      ]
-    },
-    {
-      "name": "NestJS",
-      "category": "framework",
-      "version": ">=9 (peer opcional)",
-      "why": "Usado só pelo adapter `onboarding-kit/nest`.",
-      "evidence": [
-        "package.json:57",
-        "src/adapters/nest.ts:18"
-      ]
-    },
-    {
-      "name": "Next.js",
-      "category": "framework",
-      "version": "App Router e Pages Router",
-      "why": "O adapter devolve um `Response` padrão, então não importa nada do Next.",
-      "evidence": [
-        "src/adapters/next.ts:16"
-      ]
+      ],
+      "confidence": "inferred"
     },
     {
       "name": "Mermaid",
       "category": "visualização",
-      "version": "11.4.1 (CDN)",
-      "why": "Desenha o diagrama de arquitetura na página.",
+      "version": "11 (CDN)",
+      "why": "Desenha os diagramas de arquitetura e de dependências.",
       "evidence": [
         "src/render/assets.ts:1"
-      ]
+      ],
+      "confidence": "verified"
     },
     {
       "name": "node:test",
       "category": "testes",
       "version": "nativo",
-      "why": "Testes sem dependências extras.",
+      "why": "Testes unitários sem dependências extras.",
       "evidence": [
         "test/cli.test.js:1"
-      ]
+      ],
+      "confidence": "verified"
+    },
+    {
+      "name": "Playwright",
+      "category": "testes",
+      "version": "1.x",
+      "why": "Testes de navegador do deck exportado: navegação, busca, idioma, impressão.",
+      "evidence": [
+        "playwright.config.js:2",
+        "package.json:97"
+      ],
+      "confidence": "verified"
     }
   ],
   "architecture": {
-    "summary": "O núcleo lê o `onboarding.json` a cada requisição (`load.ts`) e gera um HTML autocontido (`src/render/`). Os adapters de Node, Next e Nest são camadas finas sobre `renderOnboardingPage`. O CLI cria o template, liga a rota no projeto, valida o JSON e serve a página localmente.",
-    "diagram": "graph TD\n  CLI[CLI: init / validate / serve] --> T[template.ts]\n  CLI --> V[validate.ts]\n  AI[IA local] -->|preenche| J[(onboarding.json)]\n  T -->|cria| J\n  V -->|lê| J\n  L[load.ts] -->|lê| J\n  L --> R[render.ts]\n  R --> N[adapter Node]\n  R --> X[adapter Next]\n  R --> S[adapter Nest]",
+    "style": "Biblioteca com núcleo único e adapters finos por framework",
+    "summary": "O núcleo lê o `onboarding.json` a cada requisição e gera um HTML autocontido. Todos os adapters passam pelo mesmo `handleOnboarding` (senha, trilha, idioma e feedback). A CLI cria o template, liga a rota, valida, compara com o código e traduz.",
+    "diagram": "graph TD\n  CLI[CLI] --> T[template]\n  CLI --> V[validate]\n  CLI --> ST[status]\n  CLI --> TR[translate]\n  AI[IA local] -->|preenche| J[(onboarding.json)]\n  T -->|cria| J\n  H[handler] --> P[page]\n  P --> L[load]\n  L -->|lê| J\n  P --> R[render]\n  A[adapters] --> H\n  MCP[servidor MCP] --> V\n  MCP --> ST",
+    "patterns": [
+      {
+        "name": "Núcleo comum aos adapters",
+        "description": "Cada adapter traduz a requisição do framework para `CoreRequest` e chama `handleOnboarding`.",
+        "evidence": [
+          "src/handler.ts:107"
+        ],
+        "confidence": "verified"
+      },
+      {
+        "name": "Fatos calculados, não escritos",
+        "description": "TODOs, saúde do projeto e histórico são lidos do git a cada visita; a IA só interpreta.",
+        "evidence": [
+          "src/health.ts:140",
+          "src/facts.ts:126"
+        ],
+        "confidence": "inferred"
+      }
+    ],
     "modules": [
       {
         "name": "Template",
         "path": "src/template.ts",
-        "responsibility": "JSON em branco e as instruções para a IA, com dicas por framework."
+        "responsibility": "JSON em branco com as instruções para a IA e dicas por framework."
       },
       {
         "name": "Validação",
         "path": "src/validate.ts",
-        "responsibility": "Campos obrigatórios, itens-modelo esquecidos, evidências que existem e busca de segredos."
+        "responsibility": "Campos, evidências, segredos, Mermaid, limites e nota de cobertura."
+      },
+      {
+        "name": "Status e histórico",
+        "path": "src/status.ts",
+        "responsibility": "O que mudou no código desde `meta.commit` e o que mudou no onboarding entre versões."
+      },
+      {
+        "name": "Tradução",
+        "path": "src/translate.ts",
+        "responsibility": "Tradução incremental por hash de cada texto."
       },
       {
         "name": "Renderização",
         "path": "src/render",
-        "responsibility": "Monta o deck de slides: textos, capítulos, estilo e interação."
+        "responsibility": "Monta o deck: capítulos, estilo, busca, impressão e interação."
       },
       {
         "name": "Adapters",
         "path": "src/adapters",
-        "responsibility": "Rota /onboarding para Node/Express, Next e Nest."
+        "responsibility": "Rota /onboarding em Next, Nest, Vite, Fastify, Koa, Express e qualquer runtime com Request/Response."
       },
       {
-        "name": "CLI",
+        "name": "CLI e MCP",
         "path": "src/cli/index.ts",
-        "responsibility": "Comandos init, prompt, validate e serve."
+        "responsibility": "Comandos init, validate, status, translate, review, export, serve e o servidor MCP."
       }
     ]
   },
+  "subprojects": [],
   "conventions": [
     {
       "title": "Chaves com _ são da IA",
-      "description": "Qualquer chave que começa com `_` é ignorada pela validação e pela página.",
+      "description": "Chaves que começam com `_` (como `_instructions`) são ignoradas pela página e pela tradução.",
       "example": "",
       "evidence": [
-        "src/load.ts:47",
-        "src/validate.ts:97"
-      ]
+        "src/translate.ts:44"
+      ],
+      "confidence": "inferred"
     },
     {
-      "title": "Desligado em produção por padrão",
-      "description": "Toda rota passa por `resolveEnabled`; só liga em produção com `enabled: true`.",
-      "example": "createOnboardingRoute({ enabled: true })",
+      "title": "Desligado em produção sem senha",
+      "description": "Toda rota passa por `resolveEnabled`: em produção só liga com `enabled: true` ou com senha.",
+      "example": "createOnboardingRoute({ password: process.env.ONBOARDING_PASSWORD })",
       "evidence": [
-        "src/load.ts:11",
-        "src/adapters/node.ts:20"
-      ]
+        "src/load.ts:16"
+      ],
+      "confidence": "verified"
     },
     {
       "title": "Todo texto passa por escapeHtml",
-      "description": "O conteúdo vem de uma IA, então nada entra no HTML sem escape.",
+      "description": "O conteúdo vem de uma IA, então nada entra no HTML sem `escapeHtml`.",
       "example": "",
       "evidence": [
-        "src/render/html.ts"
-      ]
+        "src/render/html.ts:7"
+      ],
+      "confidence": "verified"
+    },
+    {
+      "title": "Mensagens em dois idiomas",
+      "description": "Toda mensagem da CLI passa por `tr(pt, en)`; o idioma vem de `cliLang`.",
+      "example": "tr(\"✓ Criei\", \"✓ Created\")",
+      "evidence": [
+        "src/i18n.ts:11"
+      ],
+      "confidence": "verified"
     }
   ],
   "domain": {
@@ -262,55 +356,99 @@
         "definition": "Integração que serve a página dentro de um framework."
       },
       {
-        "term": "Deck",
-        "definition": "A sequência de slides montada a partir do JSON."
+        "term": "Trilha",
+        "definition": "Recorte do deck para um papel: frontend, backend, gestão."
       },
       {
-        "term": "Capítulo",
-        "definition": "Grupo de slides sobre um assunto, com cor própria na barra de progresso."
+        "term": "Deriva",
+        "definition": "Evidência que só mudou de linha ou de arquivo; o `status --fix` corrige sozinho."
       }
     ],
     "businessRules": [
       {
         "title": "Arquivo só é válido depois de preenchido",
-        "description": "`meta.status` precisa ser `filled` e nenhuma lista pode manter o item-modelo em branco.",
+        "description": "Nenhuma lista pode manter o item modelo em branco, e `meta.status` precisa ser `filled`.",
         "evidence": [
-          "src/validate.ts:109"
-        ]
+          "src/validate.ts:285",
+          "src/validate.ts:369"
+        ],
+        "confidence": "verified"
       },
       {
-        "title": "Convenções, regras e armadilhas exigem evidência",
-        "description": "Sem evidência é erro; em stack e decisões é só aviso.",
+        "title": "Afirmações exigem evidência",
+        "description": "Em convenções, regras, armadilhas e riscos, item sem evidência no código é erro.",
         "evidence": [
-          "src/validate.ts:21"
-        ]
+          "src/validate.ts:381",
+          "src/validate.ts:24"
+        ],
+        "confidence": "verified"
+      },
+      {
+        "title": "Nada de dados pessoais",
+        "description": "Em `people`, e-mail ou telefone é erro: só nome, papel e canal (`PERSONAL_DATA`).",
+        "evidence": [
+          "src/validate.ts:71"
+        ],
+        "confidence": "verified"
+      },
+      {
+        "title": "Feedback só por JSON",
+        "description": "O POST de feedback aceita apenas `application/json`, o que barra formulários de outros sites.",
+        "evidence": [
+          "src/handler.ts:79"
+        ],
+        "confidence": "verified"
       }
     ]
   },
   "features": [
     {
       "name": "init",
-      "description": "Detecta o framework, cria o JSON em branco e liga a rota /onboarding.",
+      "description": "Detecta o framework e o monorepo, cria o JSON, liga a rota e o script `onboarding`.",
       "entryPoints": [
-        "src/cli/index.ts:160"
+        "src/cli/index.ts:458"
       ],
       "status": "estável"
     },
     {
       "name": "validate",
-      "description": "Aponta o que a IA deixou faltando ou inventou.",
+      "description": "Aponta o que a IA deixou faltando ou inventou e dá a nota de cobertura.",
       "entryPoints": [
-        "src/cli/index.ts:205"
+        "src/cli/index.ts:578"
       ],
       "status": "estável"
     },
     {
-      "name": "Página /onboarding",
-      "description": "Apresentação do projeto com navegação, busca, diagrama e links para o código.",
+      "name": "status",
+      "description": "Mostra o que envelheceu desde `meta.commit` e monta o prompt para a IA atualizar só isso.",
       "entryPoints": [
-        "src/render/index.ts"
+        "src/status.ts:117"
       ],
       "status": "estável"
+    },
+    {
+      "name": "translate",
+      "description": "Traduz para inglês ou português só os textos que mudaram.",
+      "entryPoints": [
+        "src/cli/index.ts:717"
+      ],
+      "status": "novo"
+    },
+    {
+      "name": "Página /onboarding",
+      "description": "Deck com trilhas, busca, idioma, feedback, impressão e visão executiva.",
+      "entryPoints": [
+        "src/render/index.ts:295"
+      ],
+      "status": "estável"
+    },
+    {
+      "name": "Servidor MCP",
+      "description": "facts, status, validate e translate como ferramentas para a IA.",
+      "entryPoints": [
+        "src/mcp.ts:175"
+      ],
+      "status": "novo"
     }
   ],
   "tours": [
@@ -319,16 +457,20 @@
       "description": "O caminho de uma requisição a /onboarding.",
       "steps": [
         {
-          "file": "src/adapters/next.ts:16",
-          "explanation": "O adapter confere se a rota está ligada."
+          "file": "src/adapters/next.ts:17",
+          "explanation": "O adapter recebe a requisição e repassa para o núcleo."
         },
         {
-          "file": "src/index.ts:17",
-          "explanation": "Lê o arquivo e escolhe a página: pendente, ausente, erro ou completa."
+          "file": "src/handler.ts:107",
+          "explanation": "Confere senha, lê trilha e idioma da URL e trata o POST de feedback."
         },
         {
-          "file": "src/render/index.ts",
-          "explanation": "Numera os capítulos que têm conteúdo e monta o deck com boas-vindas e final."
+          "file": "src/page.ts:21",
+          "explanation": "Lê o arquivo, aplica a tradução e escolhe a página: ausente, pendente, erro ou completa."
+        },
+        {
+          "file": "src/render/index.ts:295",
+          "explanation": "Monta o deck só com os capítulos que têm conteúdo."
         }
       ]
     }
@@ -336,38 +478,210 @@
   "gotchas": [
     {
       "title": "Pacote em CommonJS",
-      "description": "Compilado como CommonJS para que apps Nest consigam dar `require`. Os subpaths dependem de `exports` e `typesVersions` no package.json.",
+      "description": "Compilado com `commonjs` para apps Nest conseguirem dar require. Os subpaths dependem de `exports` e `typesVersions` no package.json.",
       "evidence": [
-        "package.json:11",
-        "package.json:30"
-      ]
+        "tsconfig.json:4",
+        "package.json:19",
+        "package.json:59"
+      ],
+      "confidence": "verified"
+    },
+    {
+      "title": "Impressão sem 3D",
+      "description": "O Chrome ignora `backface-visibility` ao imprimir: os cartões do vocabulário são achatados no CSS de impressão.",
+      "evidence": [
+        "src/render/assets.ts:508"
+      ],
+      "confidence": "verified"
     }
   ],
   "decisions": [
     {
       "title": "Sem dependências em runtime",
       "context": "O pacote roda dentro do projeto de outras pessoas.",
-      "decision": "Validação e HTML feitos à mão, sem Zod nem React.",
+      "decision": "Validação, HTML, servidor MCP e JSON Schema feitos à mão, sem Zod, React ou SDK.",
       "evidence": [
         "package.json"
-      ]
+      ],
+      "confidence": "inferred"
+    },
+    {
+      "title": "Tradução incremental por hash",
+      "context": "Regenerar o onboarding em outro idioma obrigaria a IA a reler o repositório.",
+      "decision": "Guardar o hash de cada texto e mandar para a IA só o que mudou (`pendingStrings`).",
+      "evidence": [
+        "src/translate.ts:89"
+      ],
+      "confidence": "verified"
+    }
+  ],
+  "workflow": {
+    "branching": {
+      "model": "Trunk-based",
+      "mainBranch": "master",
+      "description": "Commits direto na master, pequenos e frequentes; a CI roda em cada push e em PRs.",
+      "branches": [],
+      "evidence": [
+        ".github/workflows/ci.yml:5"
+      ],
+      "confidence": "verified"
+    },
+    "commits": {
+      "convention": "Frase curta em inglês, no imperativo",
+      "format": "Verbo + o que mudou (ex.: Add ..., Fix ..., Release X.Y.Z)",
+      "examples": [
+        "Detect monorepos and subprojects",
+        "Release 0.5.0"
+      ],
+      "enforcedBy": "",
+      "evidence": [],
+      "confidence": "inferred"
+    },
+    "pullRequests": {
+      "process": "PRs bem-vindos; a CI precisa passar em Node 18, 20 e 22, Windows, macOS e nos testes de navegador.",
+      "checklist": [
+        "`npm test` passando",
+        "`npm run test:e2e` quando mexer no deck"
+      ],
+      "evidence": [
+        ".github/workflows/ci.yml:13"
+      ],
+      "confidence": "inferred"
+    },
+    "release": {
+      "process": "`npm version` cria a tag; o push da tag publica no npm com provenance.",
+      "environments": [
+        {
+          "name": "npm",
+          "trigger": "tag v*",
+          "description": "Publicação do pacote"
+        },
+        {
+          "name": "GitHub Pages",
+          "trigger": "push na master",
+          "description": "Demo com este onboarding"
+        }
+      ],
+      "evidence": [
+        ".github/workflows/publish.yml",
+        ".github/workflows/pages.yml:7"
+      ],
+      "confidence": "verified"
+    }
+  },
+  "quality": {
+    "testing": {
+      "approach": "Testes unitários e de CLI com `node:test`, separados por área; testes de navegador do deck exportado com Playwright.",
+      "location": "test/ e e2e/",
+      "command": "npm test",
+      "evidence": [
+        "test/cli.test.js:1",
+        "playwright.config.js:2"
+      ],
+      "confidence": "verified"
+    },
+    "checks": [
+      {
+        "name": "CI",
+        "when": "push e PR",
+        "description": "Testes em Node 18/20/22, Windows e macOS, mais os testes de navegador.",
+        "evidence": [
+          ".github/workflows/ci.yml"
+        ]
+      },
+      {
+        "name": "Publicação",
+        "when": "tag v*",
+        "description": "Confere se a tag bate com o package.json antes de publicar.",
+        "evidence": [
+          ".github/workflows/publish.yml"
+        ]
+      }
+    ]
+  },
+  "docs": [
+    {
+      "title": "README",
+      "file": "README.md",
+      "why": "Tudo o que o kit faz, comando por comando, com os exemplos de cada framework."
+    },
+    {
+      "title": "README em inglês",
+      "file": "README.en.md",
+      "why": "A mesma visão para quem não lê português."
+    }
+  ],
+  "codeNotes": [],
+  "todos": [],
+  "executive": {
+    "summary": "Projeto jovem e em ritmo forte de entrega, publicado no npm e com CI em três sistemas. O ponto de atenção é o conhecimento concentrado em uma pessoa.",
+    "risks": [
+      {
+        "title": "Conhecimento concentrado",
+        "description": "Quase todos os commits são de uma pessoa: revisão de PR e documentação de decisões ajudam a espalhar o contexto.",
+        "evidence": [
+          "src/health.ts:140"
+        ],
+        "confidence": "inferred"
+      },
+      {
+        "title": "Mudanças nos frameworks",
+        "description": "Cada adapter depende do contrato de um framework (Next, Nest, Vite...). Uma versão nova pode quebrar a rota sem que os testes percebam.",
+        "evidence": [
+          "src/adapters/next.ts:17"
+        ],
+        "confidence": "inferred"
+      }
+    ],
+    "integrations": [
+      {
+        "name": "npm",
+        "role": "Onde o pacote é publicado, com Trusted Publishing pelo GitHub Actions.",
+        "evidence": [
+          ".github/workflows/publish.yml"
+        ]
+      },
+      {
+        "name": "GitHub Pages",
+        "role": "Hospeda a demo: este onboarding exportado a cada push.",
+        "evidence": [
+          ".github/workflows/pages.yml"
+        ]
+      }
+    ]
+  },
+  "openQuestions": [
+    {
+      "question": "Qual a política de versões e de quebra de compatibilidade?",
+      "why": "Não há CHANGELOG nem nota sobre semver; a 0.x ainda pode mudar a API."
+    },
+    {
+      "question": "Quais frameworks são testados de verdade antes de cada release?",
+      "why": "Os testes cobrem os adapters com requisições simuladas, não com apps reais de cada framework."
     }
   ],
   "firstTasks": [
     {
-      "title": "Comando `check` para a CI",
-      "description": "Falhar quando `meta.commit` estiver muito atrás do HEAD.",
+      "title": "Traduzir as ferramentas do MCP",
+      "description": "As descrições das ferramentas e as mensagens de erro do MCP ainda estão só em português.",
       "files": [
-        "src/cli/index.ts",
-        "src/validate.ts:109"
+        "src/mcp.ts:175"
       ]
     },
     {
-      "title": "Instruções em inglês",
-      "description": "Escolher o idioma das instruções a partir de `--lang`.",
+      "title": "Ignorar TODOs em fixtures de teste",
+      "description": "A varredura conta TODOs que aparecem dentro de strings nos testes.",
       "files": [
-        "src/template.ts:44"
+        "src/facts.ts:86"
+      ]
+    },
+    {
+      "title": "CHANGELOG",
+      "description": "Registrar as mudanças de cada versão a partir dos commits.",
+      "files": [
+        "package.json"
       ]
     }
-  ]
+  ],
+  "tracks": []
 }

@@ -71,6 +71,7 @@ Open `/onboarding` with the app running in dev, or run `npx onboarding-kit serve
 | `mcp` | MCP server (stdio) with `onboarding_facts`, `onboarding_status`, `onboarding_validate`, `onboarding_translate` and more |
 | `serve` | Opens the presentation at `http://localhost:4321` (`--port`). Shows the project, deck stats, coverage and tracks, and logs each time the AI writes `onboarding.json` |
 | `translate` | Translates the onboarding without rereading the code: `--to en` writes only the new or changed texts to `onboarding.en.todo.json`, the AI translates that file, and the next `translate` stores the result in `onboarding.en.json`. `--ai` runs it all with the installed AI |
+| `review` | Records that someone checked a chapter: `review rules --by Ana`. The slides show "Reviewed by Ana on…" and `status` warns when that chapter's code changes later |
 | `export` | Builds one static HTML file (`--out`, default `onboarding.html`). `--offline` embeds Mermaid and fonts; each track and each translated language becomes its own file (`onboarding.frontend.html`, `onboarding.en.html`) |
 
 CLI messages and generated content default to Portuguese. For English, use `init --lang en` or set `ONBOARDING_KIT_LANG=en`.
@@ -113,7 +114,7 @@ claude mcp add onboarding-kit -- npx onboarding-kit mcp
 
 ## The presentation
 
-`/onboarding` is a slide tour told from a new hire's point of view: welcome → why → business → product → vocabulary (flip cards and a quiz) → rules → stack → architecture → running locally → house style → Git and workflow → quality → required reading → code tour → gotchas → TODOs → first mission → cheat sheet → finale.
+`/onboarding` is a slide tour told from a new hire's point of view: welcome → why → business → product → executive view → vocabulary (flip cards and a quiz) → rules → stack → architecture → running locally → house style → Git and workflow → quality → required reading → code tour → gotchas → TODOs → open questions → first mission → cheat sheet → finale.
 
 - Navigate with ← →, space, swipe or the colored segments; `O` opens the index. Progress is saved in the browser. Light and dark themes.
 - **Search:** `Ctrl/Cmd+K` or `/` searches every slide, accent-insensitive.
@@ -127,6 +128,9 @@ claude mcp add onboarding-kit -- npx onboarding-kit mcp
 - Brand colors and logo are picked up from Tailwind, CSS variables, theme files and `public/`.
 - The presentation UI speaks English, Portuguese and Spanish, following `meta.language`.
 - **Portuguese or English:** the PT | EN switcher in the top bar changes the language (`/onboarding?lang=en`). Translated texts come from `translate`; anything missing stays in the original, with a notice and the command to run. Translation is incremental, so the AI only translates what changed.
+- **Executive view** for product owners and CTOs: a dashboard computed from git and files, with no AI (release pace, activity, knowledge concentration, debt per kloc, tests and coverage, dependencies and licenses), external integrations detected from dependencies and infra files, the top 3 risks and the hotspots. The built-in **gestao** track (`?track=gestao`) shows only the business and health chapters.
+- **Open questions:** what the AI couldn't confirm in the code becomes a question for the team instead of a guess.
+- **Confidence:** inferred items (`confidence: "inferred"`) are marked as such and weigh less in the coverage score. `validate` also warns when the cited lines don't mention the `` `symbol` `` the text talks about.
 
 ## Monorepos
 

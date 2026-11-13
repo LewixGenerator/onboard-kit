@@ -117,6 +117,7 @@ Se você abrir `/onboarding` antes da IA terminar, a página mostra o prompt pro
 | `mcp` | Servidor MCP (stdio) com as ferramentas `onboarding_facts`, `onboarding_status`, `onboarding_validate` e outras, para a IA receber JSON em vez de ler o terminal |
 | `serve` | Abre a apresentação em `http://localhost:4321` (`--port` para mudar). Mostra o projeto, os números do deck, a cobertura e as trilhas, e avisa no terminal cada vez que a IA grava o `onboarding.json` |
 | `translate` | Traduz o onboarding para o outro idioma sem reler o código: `--to en` grava em `onboarding.en.todo.json` só os textos novos ou alterados desde a última tradução, a IA traduz esse arquivo e o próximo `translate` guarda o resultado em `onboarding.en.json`. `--ai` faz tudo com a IA instalada |
+| `review` | Registra que alguém do time conferiu um capítulo: `review rules --by Ana` (ids dos capítulos em inglês: `rules`, `architecture`, `executive`…). A apresentação mostra "Revisado por Ana em…" e o `status` avisa quando o código daquele capítulo muda depois. Sem argumentos, lista as revisões |
 | `export` | Gera um HTML único e estático da apresentação (`--out`, padrão `onboarding.html`), para GitHub Pages, intranet ou anexo. `--offline` embute o Mermaid e as fontes; cada trilha vira um arquivo ao lado (`onboarding.frontend.html`), e cada idioma traduzido também (`onboarding.en.html`) |
 
 ## Mantendo o onboarding em dia
@@ -164,7 +165,7 @@ O `onboarding.json` aponta para um JSON Schema (`$schema`), então o editor e a 
 
 ## A apresentação
 
-A página `/onboarding` é um tour em slides, contado do ponto de vista de quem acabou de ser contratado: boas-vindas → o porquê → o negócio → o produto → vocabulário (com cartões que viram e um quiz) → regras do jogo → stack → arquitetura (estilo, padrões, diagrama, pastas e decisões) → rodando na máquina → jeito da casa → Git e fluxo (branches, commits, PR e deploy) → qualidade (testes e verificações automáticas) → leitura obrigatória (docs e recados deixados no código) → tour pelo código → cuidados → TODOs → primeira missão → cola do dia a dia → final.
+A página `/onboarding` é um tour em slides, contado do ponto de vista de quem acabou de ser contratado: boas-vindas → o porquê → o negócio → o produto → visão executiva → vocabulário (com cartões que viram e um quiz) → regras do jogo → stack → arquitetura (estilo, padrões, diagrama, pastas e decisões) → rodando na máquina → jeito da casa → Git e fluxo (branches, commits, PR e deploy) → qualidade (testes e verificações automáticas) → leitura obrigatória (docs e recados deixados no código) → tour pelo código → cuidados → TODOs → perguntas em aberto → primeira missão → cola do dia a dia → final.
 
 Os TODOs são contados direto do código a cada visita, então o número nunca fica desatualizado. A IA escolhe só os que importam para quem está chegando e explica o impacto de cada um.
 
@@ -177,6 +178,9 @@ Navegação por ← →, espaço, swipe no celular ou pelos segmentos coloridos 
 Cada slide tem um link direto, para mandar a parte certa para quem pergunta: `/onboarding#/arquitetura`, `/onboarding#/arquitetura/2`. O botão **Imprimir / PDF** (no índice e no final) gera um slide por página. A interface da apresentação fala português, inglês e espanhol, conforme `meta.language`.
 
 - **Português ou inglês:** o seletor PT | EN no topo troca o idioma (`/onboarding?lang=en`). O que já foi traduzido com `translate` aparece no outro idioma; o que falta fica no original, com um aviso e o comando para traduzir. Como a tradução é incremental, a IA só traduz o que mudou, sem gastar tokens relendo o projeto.
+- **Visão executiva:** para P.O., CTO e gestão. Um painel calculado direto do git e dos arquivos, sem IA: ritmo de entregas, atividade, concentração de conhecimento (quantas pessoas fazem 80% dos commits), dívida técnica por mil linhas, testes e cobertura, dependências e licenças. Depois, as integrações externas (detectadas pelas dependências e arquivos de infra, com o papel de cada uma escrito pela IA), os 3 maiores riscos e as áreas que mais mudam. A trilha **gestão** (`?trilha=gestao`) vem pronta e mostra só negócio, produto, visão executiva, arquitetura, fluxo, qualidade, TODOs e perguntas em aberto.
+- **Perguntas em aberto:** o que a IA não conseguiu confirmar no código vira pergunta para o time, em vez de chute.
+- **Confiança:** itens deduzidos (`confidence: "inferred"`) aparecem marcados como "deduzido" e valem menos na nota de cobertura.
 
 - **Busca:** `Ctrl/Cmd+K` ou `/` procura em todos os slides, sem diferenciar acentos.
 - **Trechos de código:** os passos do tour, as regras de negócio e os cuidados mostram as linhas citadas na evidência (`arquivo.ts:42`), com a linha destacada.
@@ -196,9 +200,9 @@ Com uma cor, os capítulos variam em torno dela. Com várias, eles se revezam en
 
 ## O que vai no JSON
 
-`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks`, `workflow` (modelo de branches, padrão de commit com exemplos reais, processo de PR, ambientes de deploy), `quality` (como o time testa e o que roda na CI e nos hooks), `docs`, `codeNotes` (NOTE/IMPORTANT/WARNING/@deprecated relevantes), `todos`, `subprojects` (projetos do monorepo), `tracks` (trilhas por papel), `people` (opcional) e `brand` (cores e logo). `architecture` também traz `style` (monolito, microsserviços, hexagonal…) e `patterns`.
+`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks`, `workflow` (modelo de branches, padrão de commit com exemplos reais, processo de PR, ambientes de deploy), `quality` (como o time testa e o que roda na CI e nos hooks), `docs`, `codeNotes` (NOTE/IMPORTANT/WARNING/@deprecated relevantes), `todos`, `subprojects` (projetos do monorepo), `tracks` (trilhas por papel), `people` (opcional), `executive` (resumo, riscos e integrações), `openQuestions`, `reviews` e `brand` (cores e logo). `architecture` também traz `style` (monolito, microsserviços, hexagonal…) e `patterns`.
 
-Toda afirmação aponta para arquivos reais (`evidence: ["src/orders/orders.service.ts:42"]`). Quando `project.repoUrl` está preenchido, essas referências viram links para o código.
+Toda afirmação aponta para arquivos reais (`evidence: ["src/orders/orders.service.ts:42"]`). Quando `project.repoUrl` está preenchido, essas referências viram links para o código. O `validate` confere também se as linhas citadas falam do que o texto diz: se a descrição menciona `` `calcularFrete` `` e o nome não aparece perto da linha da evidência, ele avisa.
 
 As chaves que começam com `_` (como `_instructions`) são só para a IA: a página as ignora. Deixe-as no arquivo, porque a IA usa essas instruções para **atualizar** o onboarding depois (com `git diff` desde `meta.commit`).
 

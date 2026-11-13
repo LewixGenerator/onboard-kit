@@ -460,6 +460,27 @@ a.ev:hover{color:var(--accent);border-color:var(--accent)}
 .track{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-radius:14px;background:var(--surface);border:1px solid var(--border);color:var(--text);text-decoration:none;max-width:260px;text-align:left;transition:border-color .2s}
 .track:hover,.track:focus-visible{border-color:var(--accent)}
 .track span{color:var(--muted);font-size:.85rem}
+.metrics{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+.metric{display:flex;flex-direction:column;gap:6px;--lv:var(--muted)}
+.metric[data-level=good]{--lv:hsl(145 55% 40%)}
+.metric[data-level=attention]{--lv:hsl(38 90% 45%)}
+.metric[data-level=risk]{--lv:hsl(4 70% 52%)}
+.metric-label{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.metric strong{font-size:1.15rem;line-height:1.3;letter-spacing:-.01em}
+.metric small{color:var(--muted);font-size:.8rem}
+.metric .level{margin-top:auto;display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:700;color:var(--lv)}
+.metric .level i{width:8px;height:8px;border-radius:50%;background:var(--lv)}
+.integration .source{margin:6px 0 0;font-size:.75rem;color:var(--muted)}
+.risks{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+.risk,.question{display:flex;gap:14px;align-items:flex-start}
+.hotspots ol{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:10px}
+.hotspots li{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:10px;align-items:center;font-size:.85rem}
+.hotspots code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.hot-bar{height:6px;border-radius:99px;background:var(--track);overflow:hidden}
+.hot-bar span{display:block;height:100%;background:var(--accent);border-radius:inherit}
+.hotspots small{color:var(--muted);white-space:nowrap}
+.inferred{display:inline-flex;align-items:center;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:99px;border:1px dashed var(--border);color:var(--muted);cursor:help}
+.reviewed{margin:18px 0 0;font-size:.78rem;color:var(--muted)}
 .langs{flex:none;display:flex;padding:3px;border-radius:12px;border:1px solid var(--border);background:var(--surface)}
 .langs a{padding:6px 9px;border-radius:9px;font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--muted);text-decoration:none;transition:color .2s,background .2s}
 .langs a:hover{color:var(--text)}

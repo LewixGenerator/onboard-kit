@@ -46,10 +46,16 @@ const ARRAY_SECTIONS: { path: string; key: string; evidence?: "error" | "warning
   { path: "docs", key: "file", optional: true },
   { path: "codeNotes", key: "file", optional: true },
   { path: "todos", key: "file", optional: true },
+  { path: "executive.risks", key: "title", evidence: "error", optional: true },
+  { path: "executive.integrations", key: "name", evidence: "warning", optional: true },
+  { path: "openQuestions", key: "question", optional: true },
 ];
 
 /** Limites de itens: acima disso a apresentação fica pesada para quem está chegando. */
 const MAX_ITEMS: Record<string, number> = {
+  "executive.risks": 3,
+  "executive.integrations": 12,
+  openQuestions: 6,
   "architecture.patterns": 5,
   "workflow.branching.branches": 6,
   "quality.checks": 6,
@@ -61,7 +67,7 @@ const MAX_ITEMS: Record<string, number> = {
   people: 8,
 };
 
-const CHAPTER_IDS = new Set(["why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "people", "quality", "docs", "tours", "gotchas", "todos", "mission", "cheatsheet"]);
+const CHAPTER_IDS = new Set(["why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "people", "quality", "docs", "tours", "gotchas", "todos", "executive", "questions", "mission", "cheatsheet"]);
 const PERSONAL_DATA = /[\w.+-]+@[\w-]+\.[\w.]+|\+?\d[\d\s().-]{8,}\d/;
 
 const EVIDENCE_KEYS = new Set(["evidence", "entryPoints", "files"]);
@@ -173,6 +179,30 @@ function checkEvidence(ref: unknown, at: string, root: string, issues: Issue[]):
   }
 }
 
+/**
+ * Símbolos citados entre crases no texto do item que não aparecem perto de nenhuma linha citada na evidência.
+ * Pega evidência genérica ("src/index.ts:1") ou que mudou de assunto. undefined quando não dá para conferir.
+ */
+export function unmentionedSymbols(item: Record<string, unknown>, root: string): string[] | undefined {
+  const textOf = [item.title, item.name, item.description, item.why, item.decision].filter((v) => typeof v === "string").join(" ");
+  const symbols = [...new Set([...textOf.matchAll(/`([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)(?:\(\))?`/g)].map((m) => m[1]).filter((s) => s.length >= 3))];
+  const refs = (Array.isArray(item.evidence) ? item.evidence : []).filter((r): r is string => typeof r === "string").map(parseEvidence).filter((e) => e.line);
+  if (!symbols.length || !refs.length) return undefined;
+  let windows = "";
+  for (const { file, line } of refs) {
+    const full = resolve(root, file);
+    if (relative(root, full).startsWith("..")) continue;
+    try {
+      const lines = readFileSync(full, "utf8").split(/\r?\n/);
+      windows += lines.slice(Math.max(0, line! - 4), line! + 3).join("\n") + "\n";
+    } catch {
+      return undefined;
+    }
+  }
+  const missing = symbols.filter((sym) => !windows.includes(sym.split(".").pop()!));
+  return missing.length === symbols.length ? missing : [];
+}
+
 function walkEvidence(value: unknown, at: string, root: string, issues: Issue[]): void {
   if (Array.isArray(value)) {
     value.forEach((v, i) => walkEvidence(v, `${at}[${i}]`, root, issues));
@@ -202,6 +232,8 @@ export interface Coverage {
   total: number;
   /** Referências a arquivos por item com campo de evidência. */
   evidencePerItem: number;
+  /** Itens marcados como deduzidos (confidence: "inferred"): valem metade na parte de evidências. */
+  inferred: number;
 }
 
 /** Nota de cobertura do onboarding, para acompanhar na CI e mostrar como badge. */
@@ -210,20 +242,23 @@ export function coverageScore(data: unknown): Coverage {
   const filled = COVERAGE_SECTIONS.filter((key) => !isBlank(obj[key])).length;
   let items = 0;
   let refs = 0;
+  let inferred = 0;
   const visit = (value: unknown) => {
     if (Array.isArray(value)) return value.forEach(visit);
     if (!isObj(value)) return;
     const evidence = Object.entries(value).filter(([k]) => EVIDENCE_KEYS.has(k));
     if (evidence.length && !isBlank(value)) {
       items++;
+      if (value.confidence === "inferred") inferred++;
       for (const [, v] of evidence) if (Array.isArray(v)) refs += v.filter((r) => !isBlank(r)).length;
     }
     for (const [k, v] of Object.entries(value)) if (!k.startsWith("_") && k !== "meta") visit(v);
   };
   visit(obj);
   const evidencePerItem = items ? Math.round((refs / items) * 10) / 10 : 0;
-  const score = Math.round(100 * (0.7 * (filled / COVERAGE_SECTIONS.length) + 0.3 * Math.min(1, evidencePerItem / 1.5)));
-  return { score, filled, total: COVERAGE_SECTIONS.length, evidencePerItem };
+  const trust = items ? 1 - 0.5 * (inferred / items) : 1;
+  const score = Math.round(100 * (0.7 * (filled / COVERAGE_SECTIONS.length) + 0.3 * Math.min(1, evidencePerItem / 1.5) * trust));
+  return { score, filled, total: COVERAGE_SECTIONS.length, evidencePerItem, inferred };
 }
 
 /** JSON do endpoint do shields.io para o badge de cobertura. */
@@ -344,6 +379,21 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
       }
       if (section.evidence && Array.isArray(item.evidence) && item.evidence.every(isBlank)) {
         issues.push({ level: section.evidence, path: `${at}.evidence`, message: tr("sem evidência no código", "no evidence in the code") });
+      }
+      if (item.confidence !== undefined && item.confidence !== "verified" && item.confidence !== "inferred") {
+        warn(`${at}.confidence`, tr(`use "verified" ou "inferred": "${String(item.confidence)}"`, `use "verified" or "inferred": "${String(item.confidence)}"`));
+      }
+      if (options.root && item.confidence !== "inferred") {
+        const missing = unmentionedSymbols(item, options.root);
+        if (missing?.length) {
+          warn(
+            `${at}.evidence`,
+            tr(
+              `as linhas citadas não mencionam ${missing.map((m) => `\`${m}\``).join(", ")}: aponte a linha certa ou marque confidence: "inferred"`,
+              `the cited lines don't mention ${missing.map((m) => `\`${m}\``).join(", ")}: point to the right line or set confidence: "inferred"`,
+            ),
+          );
+        }
       }
     });
     if (section.min && real < section.min) err(section.path, tr(`precisa de pelo menos ${section.min} item`, `needs at least ${section.min} item`));

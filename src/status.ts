@@ -1,3 +1,4 @@
+import { chapterOf } from "./history";
 import { tr } from "./i18n";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -49,6 +50,8 @@ export interface StatusReport {
   uncovered: string[];
   /** Comentários "ficou confuso?" deixados nos slides da versão atual. */
   feedback: FeedbackEntry[];
+  /** Capítulos revisados por alguém do time cujos arquivos mudaram depois da revisão. */
+  reviewsOutdated: { chapter: string; by: string; at: string; files: string[] }[];
 }
 
 const EVIDENCE_KEYS = new Set(["evidence", "entryPoints", "files"]);
@@ -113,7 +116,7 @@ export function relocateLine(oldSource: string, newSource: string, line: number)
 
 export function onboardingStatus(data: OnboardingData, root: string): StatusReport {
   const feedback = readFeedback(join(root, FEEDBACK_FILE)).filter((f) => !data.meta?.commit || !f.commit || f.commit === data.meta.commit);
-  const report: StatusReport = { changed: [], added: [], deleted: [], renamed: {}, stale: [], drift: [], broken: [], uncovered: [], feedback };
+  const report: StatusReport = { changed: [], added: [], deleted: [], renamed: {}, stale: [], drift: [], broken: [], uncovered: [], feedback, reviewsOutdated: [] };
   if (git(root, ["rev-parse", "--is-inside-work-tree"])?.trim() !== "true") return { ...report, problem: "no-git" };
   const since = data.meta?.commit?.trim();
   if (!since) return { ...report, problem: "no-commit" };
@@ -168,6 +171,13 @@ export function onboardingStatus(data: OnboardingData, root: string): StatusRepo
   }
   report.stale = [...stale.values()];
 
+  // revisões humanas: o capítulo precisa de outra revisão quando os arquivos dele mudaram depois dela
+  for (const [chapter, review] of Object.entries(data.reviews ?? {})) {
+    if (!review?.commit || git(root, ["cat-file", "-e", `${review.commit}^{commit}`]) === undefined) continue;
+    const since = new Set((git(root, ["diff", "--name-only", review.commit, "--", "."]) ?? "").split("\n").filter(Boolean).map(strip));
+    const files = [...new Set(refs.filter((r) => chapterOf(r.item) === chapter).map((r) => parseEvidence(r.ref).file).filter((f) => since.has(f)))];
+    if (files.length) report.reviewsOutdated.push({ chapter, by: review.by, at: review.at, files });
+  }
 
   const cited = refs.map((r) => parseEvidence(r.ref).file);
   report.uncovered = report.added

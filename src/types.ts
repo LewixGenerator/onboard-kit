@@ -6,6 +6,9 @@
 /** Referência a um trecho do código: "caminho/arquivo.ts" ou "caminho/arquivo.ts:42". */
 export type Evidence = string;
 
+/** verified: uma evidência comprova sozinha; inferred: deduzido de vários arquivos. */
+export type Confidence = "verified" | "inferred";
+
 export type Framework =
   | "next"
   | "nuxt"
@@ -64,6 +67,7 @@ export interface StackItem {
   version: string;
   why: string;
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface ArchitectureModule {
@@ -76,6 +80,7 @@ export interface ArchitecturePattern {
   name: string;
   description: string;
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface Architecture {
@@ -132,18 +137,21 @@ export interface Convention {
   description: string;
   example: string;
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface BusinessActor {
   name: string;
   description: string;
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface BusinessFlow {
   name: string;
   steps: string[];
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface Business {
@@ -164,6 +172,7 @@ export interface BusinessRule {
   title: string;
   description: string;
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface Feature {
@@ -188,6 +197,7 @@ export interface Gotcha {
   title: string;
   description: string;
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface Decision {
@@ -195,6 +205,7 @@ export interface Decision {
   context: string;
   decision: string;
   evidence: Evidence[];
+  confidence?: Confidence;
 }
 
 export interface FirstTask {
@@ -291,6 +302,44 @@ export interface BrandInfo {
   evidence: Evidence[];
 }
 
+export interface Risk {
+  title: string;
+  description: string;
+  evidence: Evidence[];
+  confidence?: Confidence;
+}
+
+export interface IntegrationNote {
+  /** Nome do serviço, igual ao detectado (Stripe, Sentry...) ou um que o kit não detectou. */
+  name: string;
+  /** Para que o projeto usa, em uma frase. */
+  role: string;
+  evidence: Evidence[];
+}
+
+/** Visão de P.O./CTO. Os números (releases, atividade, testes...) o kit calcula sozinho. */
+export interface Executive {
+  /** 2 ou 3 frases: em que pé o projeto está. */
+  summary: string;
+  /** Até 3 riscos reais, com evidência. */
+  risks: Risk[];
+  integrations: IntegrationNote[];
+}
+
+/** Pergunta que o código não responde: melhor perguntar do que a IA inventar. */
+export interface OpenQuestion {
+  question: string;
+  /** Por que importa ou o que a IA viu que levantou a dúvida. */
+  why: string;
+}
+
+/** Revisão humana de um capítulo. */
+export interface Review {
+  by: string;
+  at: string;
+  commit: string;
+}
+
 export interface OnboardingData {
   $schema?: string;
   _instructions?: unknown;
@@ -328,6 +377,12 @@ export interface OnboardingData {
   tracks?: Track[];
   /** Quem procurar em cada área. Opcional e desligado por padrão. */
   people?: Person[];
+  /** Visão executiva: resumo, riscos e o papel de cada integração. */
+  executive?: Executive;
+  /** O que a IA não conseguiu descobrir no código. */
+  openQuestions?: OpenQuestion[];
+  /** Capítulos revisados por alguém do time (npx onboarding-kit review). */
+  reviews?: Record<string, Review>;
 }
 
 export interface OnboardingOptions {

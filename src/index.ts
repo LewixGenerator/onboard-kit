@@ -29,3 +29,7 @@ export { mcpTools, handleMcpMessage } from "./mcp";
 export { detectAiCli, AI_CLIS } from "./ai";
 export { localize, mergeTodo, pendingStrings, readTranslation, translatableStrings, translationFile, type LocalizedView, type Translation } from "./translate";
 export { cliLang, parseLang, type Lang } from "./i18n";
+export { projectHealth, detectIntegrations, type Health, type Integration, type Level } from "./health";
+export { chapterOf } from "./history";
+export { tracksFor, MANAGEMENT_TRACK } from "./render";
+export { unmentionedSymbols } from "./validate";

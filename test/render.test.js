@@ -30,7 +30,7 @@ test("render monta o deck em ordem narrativa, com links e HTML escapado", () => 
 
   const chapters = [...html.matchAll(/<section class="slide"[^>]*data-chapter="([a-z]+)"/g)].map((m) => m[1]);
   const order = [...new Set(chapters)];
-  assert.deepEqual(order, ["welcome", "why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "quality", "docs", "tours", "todos", "mission", "cheatsheet", "finale"]);
+  assert.deepEqual(order, ["welcome", "why", "business", "product", "executive", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "quality", "docs", "tours", "todos", "questions", "mission", "cheatsheet", "finale"]);
   assert.ok(!chapters.includes("gotchas"), "capítulo vazio não aparece");
 
   // tour: 1 slide de abertura + 1 por parada

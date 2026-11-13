@@ -100,8 +100,10 @@ export function firstWithLine(refs: Evidence[] | undefined): Evidence | undefine
   return filled(refs).find((r) => parseEvidence(r).line !== undefined);
 }
 
-export function evidenceList(refs: Evidence[] | undefined, data: OnboardingData): string {
+/** Chips das evidências; `inferred` marca o item como deduzido (confidence: "inferred"). */
+export function evidenceList(refs: Evidence[] | undefined, data: OnboardingData, inferred?: { label: string; title: string }): string {
   const list = filled(refs);
   if (list.length === 0) return "";
-  return `<div class="evidence">${list.map((ref) => evidenceChip(ref, data)).join("")}</div>`;
+  const mark = inferred ? `<span class="inferred" title="${escapeHtml(inferred.title)}">${escapeHtml(inferred.label)}</span>` : "";
+  return `<div class="evidence">${mark}${list.map((ref) => evidenceChip(ref, data)).join("")}</div>`;
 }

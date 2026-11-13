@@ -8,7 +8,7 @@ import { createOnboardingHandler } from "../adapters/node";
 import { dependencyNames, detectFramework, detectProject, detectSubprojects, findSubproject, FRAMEWORK_IDS, FRAMEWORKS, readProjectManifests, type Subproject } from "../detect";
 import { collectFacts, NOTE_KINDS, TODO_KINDS, type RepoFacts } from "../facts";
 import { DEFAULT_FILE, loadOnboarding, resolveFile } from "../load";
-import { renderOnboarding } from "../render";
+import { renderOnboarding, tracksFor } from "../render";
 import { FONTS, MERMAID_URL } from "../render/assets";
 import { aiPrompt, createTemplate } from "../template";
 import type { Framework } from "../types";
@@ -20,6 +20,7 @@ import { VERSION } from "../version";
 import { serveBanner, type BannerInfo } from "./banner";
 import { AI_CLIS, detectAiCli, runAi } from "../ai";
 import { runMcpServer } from "../mcp";
+import { detectIntegrations, projectHealth } from "../health";
 import { applyDrift, onboardingStatus, statusPrompt, type StatusReport } from "../status";
 import { coverageBadge, coverageScore, validateOnboarding, type Issue } from "../validate";
 
@@ -48,6 +49,7 @@ ${c.bold("Uso")}
   npx onboarding-kit serve      Abre a apresentação em http://localhost:4321
   npx onboarding-kit export     Gera um HTML único da apresentação (GitHub Pages, anexo, PDF)
   npx onboarding-kit translate  Traduz o conteúdo para outro idioma, só o que mudou (--to en)
+  npx onboarding-kit review     Registra que alguém do time revisou um capítulo (review architecture --by "Ana")
 
 ${c.bold("Opções")}
   --file <caminho>           Arquivo de onboarding (padrão: onboarding.json)
@@ -88,6 +90,7 @@ ${c.bold("Usage")}
   npx onboarding-kit serve      Opens the presentation at http://localhost:4321
   npx onboarding-kit export     Builds a single HTML file of the presentation (GitHub Pages, attachment, PDF)
   npx onboarding-kit translate  Translates the content into another language, only what changed (--to pt)
+  npx onboarding-kit review     Records that a teammate reviewed a chapter (review architecture --by "Ana")
 
 ${c.bold("Options")}
   --file <path>              Onboarding file (default: onboarding.json)
@@ -118,7 +121,7 @@ ${c.bold("Frameworks")}
 
 interface Args {
   command?: string;
-  /** Argumentos soltos depois do comando (ex.: `onboarding-kit <comando> <arg>`). */
+  /** Argumentos soltos depois do comando (ex.: o capítulo em `review architecture`). */
   positional: string[];
   flags: Record<string, string | boolean>;
 }
@@ -626,6 +629,10 @@ export function formatStatus(r: StatusReport, file: string): string {
   section(tr("Evidências que apontam para arquivos apagados", "Evidence pointing to deleted files"), r.broken.map((b) => `${b.ref} ${c.dim(b.at)}`));
   section(tr("Arquivos novos que o onboarding não cita", "New files the onboarding doesn't mention"), r.uncovered);
   section(tr("Feedback de quem leu", "Feedback from readers"), r.feedback.map((f) => `${f.title || f.slide}: "${f.comment}"`));
+  section(
+    tr("Capítulos revisados que mudaram depois da revisão (peça uma nova)", "Reviewed chapters that changed after the review (ask for a new one)"),
+    (r.reviewsOutdated ?? []).map((v) => `${v.chapter} ${c.dim(tr(`revisado por ${v.by} · mudou: ${v.files.join(", ")}`, `reviewed by ${v.by} · changed: ${v.files.join(", ")}`))}`),
+  );
   const prompt = statusPrompt(r, file);
   if (prompt) out.push("", c.bold(tr("Envie para a sua IA:", "Send to your AI:")), "", `  ${c.cyan(prompt)}`);
   else if (!r.drift.length) out.push("", tr(`${c.green("✓")} O onboarding está em dia com o código.`, `${c.green("✓")} The onboarding is up to date with the code.`));
@@ -677,7 +684,7 @@ async function cmdExport(flags: Args["flags"]): Promise<number> {
   const source = parseLang(result.data.meta?.language) ?? "pt";
   const langs: Lang[] = [source, ...(["pt", "en"] as Lang[]).filter((l) => l !== source && readTranslation(result.file, l))];
   const fileFor = (track: string, lang: Lang) => `${[basename(out, ext), track, lang === source ? "" : lang].filter(Boolean).join(".")}${ext}`;
-  const tracks = (result.data.tracks ?? []).filter((tr) => tr?.id?.trim());
+  const tracks = tracksFor(result.data);
   const pages: [string, string][] = [];
   for (const lang of langs) {
     const view = localize(result.data, result.file, lang);
@@ -762,6 +769,51 @@ async function cmdTranslate(flags: Args["flags"]): Promise<number> {
   }
   console.log(`\n${c.bold(tr("Envie para a sua IA:", "Send to your AI:"))}\n\n  ${c.cyan(prompt)}\n`);
   return 0;
+}
+
+const REVIEWABLE = ["why", "business", "product", "executive", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "people", "quality", "docs", "tours", "gotchas", "todos", "questions", "mission"];
+
+/** review <capítulo> --by <nome>: registra que alguém do time conferiu o capítulo. Sem capítulo, lista as revisões. */
+async function cmdReview(chapter: string | undefined, flags: Args["flags"]): Promise<number> {
+  const result = await loadOnboarding(typeof flags.file === "string" ? flags.file : undefined);
+  if (!result.ok) {
+    console.error(c.red(`✗ ${result.message}`));
+    return 1;
+  }
+  const data = result.data;
+  if (!chapter) {
+    const report = onboardingStatus(data, dirname(result.file));
+    const outdated = new Set(report.reviewsOutdated.map((r) => r.chapter));
+    for (const id of REVIEWABLE) {
+      const r = data.reviews?.[id];
+      console.log(`  ${r ? (outdated.has(id) ? c.yellow("!") : c.green("✓")) : c.dim("·")} ${id.padEnd(14)} ${r ? c.dim(`${r.by} · ${r.at.slice(0, 10)}${outdated.has(id) ? tr(" · mudou depois", " · changed since") : ""}`) : ""}`);
+    }
+    console.log(c.dim(tr(`\n  Para registrar: npx onboarding-kit review <capítulo> --by "Seu nome"`, `\n  To record one: npx onboarding-kit review <chapter> --by "Your name"`)));
+    return 0;
+  }
+  if (!REVIEWABLE.includes(chapter)) {
+    console.error(c.red(tr(`✗ Capítulo desconhecido: ${chapter}. Use um destes: ${REVIEWABLE.join(", ")}.`, `✗ Unknown chapter: ${chapter}. Use one of: ${REVIEWABLE.join(", ")}.`)));
+    return 1;
+  }
+  const by = typeof flags.by === "string" ? flags.by.trim() : execFileSyncSafe("git", ["config", "user.name"], dirname(result.file));
+  if (!by) {
+    console.error(c.red(tr(`✗ Diga quem revisou: --by "Seu nome"`, `✗ Say who reviewed it: --by "Your name"`)));
+    return 1;
+  }
+  const commit = execFileSyncSafe("git", ["rev-parse", "HEAD"], dirname(result.file));
+  data.reviews = { ...(data.reviews ?? {}), [chapter]: { by, at: new Date().toISOString(), commit } };
+  const raw = readFileSync(result.file, "utf8");
+  writeFileSync(result.file, JSON.stringify(data, null, /^(\s+)"/m.exec(raw)?.[1] ?? 2) + "\n");
+  console.log(tr(`${c.green("✓")} ${chapter} revisado por ${c.bold(by)}. Aparece no slide e o status avisa quando os arquivos do capítulo mudarem.`, `${c.green("✓")} ${chapter} reviewed by ${c.bold(by)}. It shows on the slide, and status warns when the chapter's files change.`));
+  return 0;
+}
+
+function execFileSyncSafe(cmd: string, args: string[], cwd: string): string {
+  try {
+    return execFileSync(cmd, args, { cwd, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return "";
+  }
 }
 
 async function cmdStatus(flags: Args["flags"]): Promise<number> {
@@ -945,6 +997,22 @@ export function formatFacts(f: RepoFacts): string {
   };
   show(TODO_KINDS, "TODO/FIXME/HACK");
   show(NOTE_KINDS, tr("Observações (NOTE/IMPORTANT/WARNING/@deprecated)", "Notes (NOTE/IMPORTANT/WARNING/@deprecated)"));
+
+  if (f.health) {
+    const h = f.health;
+    section(tr("Saúde do projeto (calculada; vai para a visão executiva)", "Project health (computed; shown in the executive view)"));
+    out.push(`  releases: ${h.releases.last12m} ${tr("no último ano", "in the last year")}${h.releases.medianDays ? ` · ${tr("mediana", "median")} ${h.releases.medianDays} ${tr("dias", "days")}` : ""}${h.releases.lastTag ? ` · ${tr("última", "last")} ${h.releases.lastTag}` : ""} [${h.releases.level}]`);
+    out.push(`  ${tr("atividade", "activity")}: ${h.activity.perMonth} commits/${tr("mês", "month")} (${h.activity.months.join(" ")}) [${h.activity.level}]`);
+    out.push(`  ${tr("conhecimento", "knowledge")}: ${tr(`${h.knowledge.people} de ${h.knowledge.authors} pessoa(s) fazem 80% dos commits`, `${h.knowledge.people} of ${h.knowledge.authors} people make 80% of the commits`)} [${h.knowledge.level}]`);
+    out.push(`  ${tr("dívida", "debt")}: ${h.debt.markers} TODO/FIXME · ${h.debt.perKloc}/kloc [${h.debt.level}]`);
+    out.push(`  ${tr("testes", "tests")}: ${h.tests.testFiles}/${h.tests.sourceFiles}${h.tests.coverage !== undefined ? ` · ${tr("cobertura", "coverage")} ${h.tests.coverage}%` : ""} [${h.tests.level}]`);
+    out.push(`  ${tr("dependências", "dependencies")}: ${h.dependencies.total}${h.dependencies.restrictive.length ? ` · ${tr("licenças restritivas", "restrictive licenses")}: ${h.dependencies.restrictive.map((d) => `${d.name} (${d.license})`).join(", ")}` : ""} [${h.dependencies.level}]`);
+    if (h.hotspots.length) out.push(`  ${tr("mais alterados (6 meses)", "most changed (6 months)")}: ${h.hotspots.map((x) => `${x.file} (${x.commits})`).join(", ")}`);
+  }
+  if (f.integrations?.length) {
+    section(tr("Integrações e infraestrutura detectadas", "Detected integrations and infrastructure"));
+    list(f.integrations.map((i) => `${i.name} ${c.dim(`[${i.category}] ← ${i.source}`)}`));
+  }
   return out.join("\n").trimStart();
 }
 
@@ -968,6 +1036,8 @@ async function main(): Promise<number> {
       return cmdExport(flags);
     case "translate":
       return cmdTranslate(flags);
+    case "review":
+      return cmdReview(positional[0], flags);
     case "mcp":
       await runMcpServer(typeof flags.file === "string" ? flags.file : undefined);
       return 0;
@@ -991,7 +1061,7 @@ async function main(): Promise<number> {
           return 1;
         }
       }
-      const facts = collectFacts(root, { project, people: Boolean(flags.people) });
+      const facts = { ...collectFacts(root, { project, people: Boolean(flags.people) }), health: projectHealth(root), integrations: detectIntegrations(root) };
       console.log(flags.json ? JSON.stringify(facts, null, 2) : formatFacts(facts));
       return 0;
     }

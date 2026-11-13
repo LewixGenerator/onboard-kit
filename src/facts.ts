@@ -21,6 +21,8 @@ export interface MarkerScan {
   byFolder: Record<string, number>;
   items: Marker[];
   scannedFiles: number;
+  /** Linhas dos arquivos lidos (para a densidade de dívida técnica). */
+  lines: number;
 }
 
 const CODE_EXT = new Set([
@@ -86,6 +88,7 @@ export function scanMarkers(root: string, files = listRepoFiles(root), folderOf 
   const byFolder: Record<string, number> = {};
   const items: Marker[] = [];
   let scannedFiles = 0;
+  let total = 0;
   for (const file of files) {
     if (scannedFiles >= MAX_FILES) break;
     if (!CODE_EXT.has(extname(file).toLowerCase()) || file.split("/").some((part) => SKIP_DIRS.has(part)) || /\.min\.|\.d\.ts$|lock\.ya?ml$/.test(file)) continue;
@@ -99,6 +102,7 @@ export function scanMarkers(root: string, files = listRepoFiles(root), folderOf 
     }
     scannedFiles++;
     const lines = source.split(/\r?\n/);
+    total += lines.length;
     lines.forEach((line, i) => {
       const m = MARKER_RE.exec(line);
       if (!m) return;
@@ -112,7 +116,7 @@ export function scanMarkers(root: string, files = listRepoFiles(root), folderOf 
       items.push({ kind, text, file: `${file}:${i + 1}` });
     });
   }
-  return { counts, byFolder, items, scannedFiles };
+  return { counts, byFolder, items, scannedFiles, lines: total };
 }
 
 const markerCache = new Map<string, { at: number; scan: MarkerScan }>();
@@ -145,7 +149,7 @@ export interface GitFacts {
 
 const CONVENTIONAL_RE = /^(feat|fix|chore|docs|refactor|test|tests|style|perf|ci|build|revert|release|hotfix)(\([^)]*\))?!?:\s.+/i;
 
-function git(root: string, args: string[]): string | undefined {
+export function git(root: string, args: string[]): string | undefined {
   try {
     return execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "ignore"], maxBuffer: 16 * 1024 * 1024 }).toString().trim();
   } catch {
@@ -215,6 +219,9 @@ export interface RepoFacts {
   markers: MarkerScan;
   /** Só com facts --people: donos de código e quem mais fez commits em cada área. */
   people?: PeopleFacts;
+  /** Saúde do projeto e integrações, calculadas sem IA (para a visão executiva). */
+  health?: import("./health").Health;
+  integrations?: import("./health").Integration[];
 }
 
 export interface PeopleFacts {

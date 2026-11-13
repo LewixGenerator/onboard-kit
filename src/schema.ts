@@ -22,8 +22,9 @@ const obj = (properties: Record<string, Schema>, required: string[] = [], descri
 
 const evidence = str("Arquivo do repositório, relativo à raiz: caminho/arquivo.ts ou caminho/arquivo.ts:42.", { pattern: "^(?![/\\\\])(?![A-Za-z]:)" });
 const evidenceList = list(evidence, "Onde isso aparece no código.");
+const confidence = str('"verified" quando a linha citada comprova sozinha; "inferred" quando foi deduzido de vários arquivos.', { enum: ["verified", "inferred"] });
 const titled = (extra: Record<string, Schema> = {}, required = ["title"]) =>
-  obj({ title: str(), description: str(), ...extra, evidence: evidenceList }, required);
+  obj({ title: str(), description: str(), ...extra, evidence: evidenceList, confidence }, required);
 
 export function onboardingSchema(version: string): Schema {
   return {
@@ -62,8 +63,8 @@ export function onboardingSchema(version: string): Schema {
       business: obj({
         model: str("Como o produto gera valor ou receita."),
         valueProposition: str(),
-        actors: list(obj({ name: str(), description: str(), evidence: evidenceList }, ["name"])),
-        flows: list(obj({ name: str(), steps: list(str()), evidence: evidenceList }, ["name"])),
+        actors: list(obj({ name: str(), description: str(), evidence: evidenceList, confidence }, ["name"])),
+        flows: list(obj({ name: str(), steps: list(str()), evidence: evidenceList, confidence }, ["name"])),
       }),
       gettingStarted: obj({
         prerequisites: list(str()),
@@ -71,10 +72,10 @@ export function onboardingSchema(version: string): Schema {
         commands: list(obj({ name: str(), command: str(), description: str() }, ["command"])),
         envVars: list(obj({ name: str(), description: str("Para que serve. Nunca o valor."), required: { type: "boolean" } }, ["name"])),
       }),
-      stack: list(obj({ name: str(), category: str(), version: str(), why: str(), evidence: evidenceList }, ["name"])),
+      stack: list(obj({ name: str(), category: str(), version: str(), why: str(), evidence: evidenceList, confidence }, ["name"])),
       architecture: obj({
         style: str("Estilo em uma linha: monolito modular, microsserviços, serverless..."),
-        patterns: list(obj({ name: str(), description: str(), evidence: evidenceList }, ["name"]), undefined, 5),
+        patterns: list(obj({ name: str(), description: str(), evidence: evidenceList, confidence }, ["name"]), undefined, 5),
         summary: str(),
         diagram: str("Diagrama Mermaid, sem as cercas ```."),
         modules: list(obj({ name: str(), path: str(), responsibility: str() }, ["path"])),
@@ -102,17 +103,17 @@ export function onboardingSchema(version: string): Schema {
       features: list(obj({ name: str(), description: str(), entryPoints: evidenceList, status: str() }, ["name"])),
       tours: list(obj({ title: str(), description: str(), steps: list(obj({ file: evidence, explanation: str() }, ["file"])) }, ["title"])),
       gotchas: list(titled(), undefined, 6),
-      decisions: list(obj({ title: str(), context: str(), decision: str(), evidence: evidenceList }, ["title"])),
+      decisions: list(obj({ title: str(), context: str(), decision: str(), evidence: evidenceList, confidence }, ["title"])),
       firstTasks: list(obj({ title: str(), description: str(), files: evidenceList }, ["title"])),
       workflow: obj({
-        branching: obj({ model: str(), mainBranch: str(), description: str(), branches: list(obj({ pattern: str(), purpose: str() }), undefined, 6), evidence: evidenceList }),
-        commits: obj({ convention: str(), format: str(), examples: list(str(), "Mensagens reais do git log."), enforcedBy: str(), evidence: evidenceList }),
-        pullRequests: obj({ process: str(), checklist: list(str()), evidence: evidenceList }),
-        release: obj({ process: str(), environments: list(obj({ name: str(), trigger: str(), description: str() })), evidence: evidenceList }),
+        branching: obj({ model: str(), mainBranch: str(), description: str(), branches: list(obj({ pattern: str(), purpose: str() }), undefined, 6), evidence: evidenceList, confidence }),
+        commits: obj({ convention: str(), format: str(), examples: list(str(), "Mensagens reais do git log."), enforcedBy: str(), evidence: evidenceList, confidence }),
+        pullRequests: obj({ process: str(), checklist: list(str()), evidence: evidenceList, confidence }),
+        release: obj({ process: str(), environments: list(obj({ name: str(), trigger: str(), description: str() })), evidence: evidenceList, confidence }),
       }),
       quality: obj({
-        testing: obj({ approach: str(), location: str(), command: str(), evidence: evidenceList }),
-        checks: list(obj({ name: str(), when: str(), description: str(), evidence: evidenceList }, ["name"]), undefined, 6),
+        testing: obj({ approach: str(), location: str(), command: str(), evidence: evidenceList, confidence }),
+        checks: list(obj({ name: str(), when: str(), description: str(), evidence: evidenceList, confidence }, ["name"]), undefined, 6),
       }),
       docs: list(obj({ title: str(), file: evidence, why: str() }, ["file"]), undefined, 6),
       codeNotes: list(obj({ title: str(), description: str(), file: evidence, kind: str() }, ["file"]), undefined, 6),
@@ -123,7 +124,7 @@ export function onboardingSchema(version: string): Schema {
             id: str("Vai na URL: /onboarding?trilha=<id>.", { pattern: "^[a-z0-9-]+$" }),
             name: str(),
             description: str(),
-            chapters: list({ enum: ["why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "people", "quality", "docs", "tours", "gotchas", "todos", "mission", "cheatsheet"] }, "Capítulos da trilha; vazio = todos."),
+            chapters: list({ enum: ["why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "people", "quality", "docs", "tours", "gotchas", "todos", "executive", "questions", "mission", "cheatsheet"] }, "Capítulos da trilha; vazio = todos."),
             paths: list(str(), "Subprojetos da trilha; vazio = todos."),
           },
           ["id", "name"],
@@ -136,6 +137,17 @@ export function onboardingSchema(version: string): Schema {
         "Quem procurar em cada área. Só quando o time pede.",
         8,
       ),
+      executive: obj({
+        summary: str("2 ou 3 frases sobre em que pé o projeto está. Os números o kit calcula sozinho."),
+        risks: list(obj({ title: str(), description: str(), evidence: evidenceList, confidence }, ["title"]), "Até 3 riscos reais, com evidência.", 3),
+        integrations: list(obj({ name: str("Igual ao nome detectado (Stripe, Sentry...)."), role: str("Para que o projeto usa, em uma frase."), evidence: evidenceList, confidence }, ["name"]), "Papel de cada serviço externo.", 12),
+      }),
+      openQuestions: list(obj({ question: str(), why: str("O que levantou a dúvida.") }, ["question"]), "Perguntas que o código não responde. Melhor perguntar do que inventar.", 6),
+      reviews: {
+        type: "object",
+        description: "Capítulos revisados por alguém do time (npx onboarding-kit review <capítulo> --by <nome>).",
+        additionalProperties: obj({ by: str(), at: str("Data ISO 8601."), commit: str() }, ["by"]),
+      },
       brand: obj({
         primaryColor: str("Cor principal em hex (#RRGGBB)."),
         palette: list(str()),

@@ -4,11 +4,12 @@ import { cachedMarkers } from "../facts";
 import { onboardingHistory } from "../history";
 import { filled, isBlank } from "../load";
 import { aiPrompt } from "../template";
-import type { OnboardingData } from "../types";
+import type { OnboardingData, Track } from "../types";
 import { CSS, FONTS, JS, MERMAID_URL } from "./assets";
 import { CHAPTER_HUES, type ChapterId, type Copy, copyFor } from "./copy";
 import { escapeHtml, repoBase, text } from "./html";
 import { CHAPTERS, type Slide } from "./slides";
+import { detectIntegrations, projectHealth } from "../health";
 
 export { escapeHtml } from "./html";
 
@@ -173,6 +174,7 @@ function renderPendingPage(data: OnboardingData, root: string | undefined, lang:
   return soloPage(lang, name ? `${name} · Onboarding` : "Onboarding", inner, theme, "pending");
 }
 
+/** Escolha de trilha na boas-vindas, ou a trilha atual com o link para ver tudo. */
 /** Query string só com os parâmetros preenchidos ("?" quando nenhum). */
 function query(params: Record<string, string | undefined>): string {
   const q = Object.entries(params)
@@ -199,9 +201,19 @@ function untranslatedNote(t: Copy, options: RenderOptions): string {
   return `<p class="untranslated">${escapeHtml(t.ui.untranslated.replace("{n}", String(langs.untranslated)))} <code>npx onboarding-kit translate --to ${langs.current}</code></p>`;
 }
 
-/** Escolha de trilha na boas-vindas, ou a trilha atual com o link para ver tudo. */
-function tracksBlock(data: OnboardingData, t: Copy, options: RenderOptions): string {
+/** id da trilha de gestão que o kit oferece sozinho quando o time não define uma. */
+export const MANAGEMENT_TRACK = "gestao";
+const MANAGEMENT_CHAPTERS = ["why", "business", "product", "executive", "architecture", "workflow", "quality", "todos", "questions"];
+
+/** Trilhas do onboarding mais a de gestão, se o time não tiver criado uma com esse id. */
+export function tracksFor(data: OnboardingData, t: Copy = copyFor(data.meta?.language)): Track[] {
   const tracks = filled(data.tracks).filter((tr) => tr.id?.trim());
+  if (tracks.some((tr) => tr.id === MANAGEMENT_TRACK)) return tracks;
+  return [...tracks, { id: MANAGEMENT_TRACK, name: t.ui.managementTrack, description: t.ui.managementTrackDesc, chapters: MANAGEMENT_CHAPTERS, paths: [] }];
+}
+
+function tracksBlock(data: OnboardingData, t: Copy, options: RenderOptions): string {
+  const tracks = tracksFor(data, t);
   if (!tracks.length) return "";
   const href = options.trackHref ?? ((id: string) => query({ trilha: id, lang: options.languages && options.languages.current !== options.languages.source ? options.languages.current : "" }));
   const current = tracks.find((tr) => tr.id === options.track);
@@ -291,7 +303,7 @@ export function renderOnboarding(data: OnboardingData, options: RenderOptions = 
   const theme = themeFor(resolveBrand(data, options.root));
 
   // trilha: só os capítulos e subprojetos escolhidos
-  const track = filled(data.tracks).find((tr) => tr.id && tr.id === options.track);
+  const track = tracksFor(data, t).find((tr) => tr.id && tr.id === options.track);
   const only = new Set(filled(track?.chapters));
   const paths = filled(track?.paths);
   const view: OnboardingData = paths.length ? { ...data, subprojects: filled(data.subprojects).filter((s) => paths.includes(s.path)) } : data;
@@ -299,10 +311,18 @@ export function renderOnboarding(data: OnboardingData, options: RenderOptions = 
   // 1. capítulos do meio, numerados só quando têm conteúdo
   const middle: { id: ChapterId; slides: Slide[] }[] = [];
   const markers = options.root ? cachedMarkers(options.root) : undefined;
+  const wantsExecutive = !only.size || only.has("executive");
+  const health = options.root && wantsExecutive ? projectHealth(options.root) : undefined;
+  const integrations = options.root && wantsExecutive ? detectIntegrations(options.root) : undefined;
   let num = 1;
   for (const [id, build] of CHAPTERS) {
     if (only.size && !only.has(id)) continue;
-    const slides = build({ data: view, t, num, markers, root: options.root });
+    const slides = build({ data: view, t, num, markers, root: options.root, health, integrations });
+    const review = data.reviews?.[id];
+    if (slides.length && review?.by?.trim()) {
+      const at = Date.parse(review.at) ? new Date(review.at).toLocaleDateString(lang, { day: "2-digit", month: "2-digit", year: "numeric" }) : review.at;
+      slides[0] = { ...slides[0], html: `${slides[0].html}<p class="reviewed">✓ ${escapeHtml(t.trust.reviewed.replace("{by}", review.by).replace("{at}", at))}</p>` };
+    }
     if (slides.length) {
       middle.push({ id, slides });
       num++;

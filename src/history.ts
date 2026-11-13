@@ -35,7 +35,19 @@ const SECTIONS: [string, string][] = [
   ["gotchas", "gotchas"],
   ["todos", "todos"],
   ["firstTasks", "mission"],
+  ["executive.risks", "executive"],
+  ["executive.integrations", "executive"],
+  ["openQuestions", "questions"],
 ];
+
+/** Capítulo onde um item aparece: "architecture.modules[2]" → "architecture". */
+export function chapterOf(itemPath: string): string | undefined {
+  const path = itemPath.replace(/\[\d+\]/g, "");
+  const hit = SECTIONS.filter(([p]) => path === p || path.startsWith(`${p}.`)).sort((a, b) => b[0].length - a[0].length)[0];
+  if (hit) return hit[1];
+  const root = path.split(".")[0];
+  return ({ domain: "rules", business: "business", architecture: "architecture", workflow: "workflow", quality: "quality", gettingStarted: "setup", executive: "executive" } as Record<string, string>)[root];
+}
 
 function get(obj: unknown, path: string): unknown {
   return path.split(".").reduce<unknown>((o, k) => (o && typeof o === "object" ? (o as Record<string, unknown>)[k] : undefined), obj);

@@ -1,4 +1,5 @@
 import type { MarkerScan } from "../facts";
+import type { Health, Integration, Level } from "../health";
 import { filled, isBlank } from "../load";
 import type { OnboardingData } from "../types";
 import type { ChapterId, Copy } from "./copy";
@@ -21,9 +22,17 @@ export interface Ctx {
   markers?: MarkerScan;
   /** Raiz do repositório: com ela, as evidências com linha mostram o trecho do código. */
   root?: string;
+  /** Saúde e integrações calculadas do repositório (visão executiva). */
+  health?: Health;
+  integrations?: Integration[];
 }
 
 type Builder = (ctx: Ctx) => Slide[];
+
+/** Selo "inferido" para itens que a IA deduziu juntando arquivos. */
+function inferred(ctx: Ctx, item: object | undefined): { label: string; title: string } | undefined {
+  return (item as { confidence?: string } | undefined)?.confidence === "inferred" ? { label: ctx.t.trust.inferred, title: ctx.t.trust.inferredTitle } : undefined;
+}
 
 function head(ctx: Ctx, chapter: ChapterId, title: string, lede?: string, page?: [number, number]): string {
   const cont = page && page[1] > 1 ? ` <span class="cont">${page[0]}/${page[1]}</span>` : "";
@@ -94,7 +103,7 @@ const business: Builder = (ctx) => {
       `<div class="grid reveal">${page
         .map(
           (a) =>
-            `<div class="card actor"><span class="avatar" style="--ah:${hueFrom(a.name)}">${escapeHtml(initials(a.name))}</span><div><h3>${escapeHtml(a.name)}</h3><p>${text(a.description)}</p>${evidenceList(a.evidence, data)}</div></div>`,
+            `<div class="card actor"><span class="avatar" style="--ah:${hueFrom(a.name)}">${escapeHtml(initials(a.name))}</span><div><h3>${escapeHtml(a.name)}</h3><p>${text(a.description)}</p>${evidenceList(a.evidence, data, inferred(ctx, a))}</div></div>`,
         )
         .join("")}</div>`,
     ),
@@ -108,7 +117,7 @@ const business: Builder = (ctx) => {
           (f) =>
             `<div class="flow"><h3>${escapeHtml(f.name)}</h3><ol class="chain reveal">${filled(f.steps)
               .map((s, i) => `<li><span class="step"><b>${i + 1}</b>${text(s)}</span></li>`)
-              .join("")}</ol>${evidenceList(f.evidence, data)}</div>`,
+              .join("")}</ol>${evidenceList(f.evidence, data, inferred(ctx, f))}</div>`,
         )
         .join(""),
     ),
@@ -174,7 +183,7 @@ const rules: Builder = (ctx) => {
     `<div class="rules reveal">${page
       .map(
         (r, i) =>
-          `<div class="card rule"><span class="rule-num" aria-label="${t.rules.rule} ${offset + i + 1}">${pad(offset + i + 1)}</span><div><h3>${escapeHtml(r.title)}</h3><p>${text(r.description)}</p>${codeSnippet(firstWithLine(r.evidence), ctx.root)}${evidenceList(r.evidence, data)}</div></div>`,
+          `<div class="card rule"><span class="rule-num" aria-label="${t.rules.rule} ${offset + i + 1}">${pad(offset + i + 1)}</span><div><h3>${escapeHtml(r.title)}</h3><p>${text(r.description)}</p>${codeSnippet(firstWithLine(r.evidence), ctx.root)}${evidenceList(r.evidence, data, inferred(ctx, r))}</div></div>`,
       )
       .join("")}</div>`,
   );
@@ -187,7 +196,7 @@ const stack: Builder = (ctx) => {
     `<div class="grid reveal">${page
       .map(
         (s) =>
-          `<div class="card tech"><div class="tech-head"><span class="logo" style="--th:${hueFrom(s.name)}">${escapeHtml(initials(s.name))}</span><div><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml([s.category, s.version].filter(Boolean).join(" · "))}</small></div></div><p>${text(s.why)}</p>${evidenceList(s.evidence, data)}</div>`,
+          `<div class="card tech"><div class="tech-head"><span class="logo" style="--th:${hueFrom(s.name)}">${escapeHtml(initials(s.name))}</span><div><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml([s.category, s.version].filter(Boolean).join(" · "))}</small></div></div><p>${text(s.why)}</p>${evidenceList(s.evidence, data, inferred(ctx, s))}</div>`,
       )
       .join("")}</div>`,
   );
@@ -207,7 +216,7 @@ const architecture: Builder = (ctx) => {
       html: `${head(ctx, "architecture", t.architecture.styleTitle, t.architecture.styleLede)}${style ? `<p class="statement">${text(style)}</p>` : ""}${
         patterns.length
           ? `<p class="mini-label">${t.architecture.patterns}</p><div class="grid reveal">${patterns
-              .map((p) => `<div class="card"><h3>${escapeHtml(p.name)}</h3><p>${text(p.description)}</p>${evidenceList(p.evidence, data)}</div>`)
+              .map((p) => `<div class="card"><h3>${escapeHtml(p.name)}</h3><p>${text(p.description)}</p>${evidenceList(p.evidence, data, inferred(ctx, p))}</div>`)
               .join("")}</div>`
           : ""
       }`,
@@ -323,7 +332,7 @@ const conventions: Builder = (ctx) => {
     `<div class="grid-2 reveal">${page
       .map(
         (c) =>
-          `<div class="card convention"><h3>${escapeHtml(c.title)}</h3><p>${text(c.description)}</p>${c.example?.trim() ? `<pre><code>${escapeHtml(c.example)}</code></pre>` : ""}${evidenceList(c.evidence, data)}</div>`,
+          `<div class="card convention"><h3>${escapeHtml(c.title)}</h3><p>${text(c.description)}</p>${c.example?.trim() ? `<pre><code>${escapeHtml(c.example)}</code></pre>` : ""}${evidenceList(c.evidence, data, inferred(ctx, c))}</div>`,
       )
       .join("")}</div>`,
   );
@@ -360,7 +369,7 @@ const gotchas: Builder = (ctx) => {
   const { t, data } = ctx;
   return paged(ctx, "gotchas", filled(data.gotchas).slice(0, 6), 3, t.gotchas.title, t.gotchas.lede, (page) =>
     `<div class="stack-list reveal">${page
-      .map((g) => `<div class="card gotcha"><span class="emoji" aria-hidden="true">🍌</span><div><h3>${escapeHtml(g.title)}</h3><p>${text(g.description)}</p>${codeSnippet(firstWithLine(g.evidence), ctx.root)}${evidenceList(g.evidence, data)}</div></div>`)
+      .map((g) => `<div class="card gotcha"><span class="emoji" aria-hidden="true">🍌</span><div><h3>${escapeHtml(g.title)}</h3><p>${text(g.description)}</p>${codeSnippet(firstWithLine(g.evidence), ctx.root)}${evidenceList(g.evidence, data, inferred(ctx, g))}</div></div>`)
       .join("")}</div>`,
   );
 };
@@ -371,7 +380,7 @@ function decisions(ctx: Ctx, chapter: ChapterId = "decisions"): Slide[] {
     `<div class="stack-list reveal">${page
       .map(
         (d) =>
-          `<div class="card decision"><h3>${escapeHtml(d.title)}</h3><div class="split">${d.context ? `<div><span class="label">${t.decisions.context}</span><p>${text(d.context)}</p></div>` : ""}${d.decision ? `<div><span class="label">${t.decisions.decision}</span><p>${text(d.decision)}</p></div>` : ""}</div>${evidenceList(d.evidence, data)}</div>`,
+          `<div class="card decision"><h3>${escapeHtml(d.title)}</h3><div class="split">${d.context ? `<div><span class="label">${t.decisions.context}</span><p>${text(d.context)}</p></div>` : ""}${d.decision ? `<div><span class="label">${t.decisions.decision}</span><p>${text(d.decision)}</p></div>` : ""}</div>${evidenceList(d.evidence, data, inferred(ctx, d))}</div>`,
       )
       .join("")}</div>`,
   );
@@ -409,7 +418,7 @@ const workflow: Builder = (ctx) => {
               .map((br) => `<div class="branch"><code>${escapeHtml(br.pattern)}</code><span>${text(br.purpose)}</span></div>`)
               .join("")}</div>`
           : ""
-      }${evidenceList(b.evidence, data)}`,
+      }${evidenceList(b.evidence, data, inferred(ctx, b))}`,
     });
   }
 
@@ -435,7 +444,7 @@ const workflow: Builder = (ctx) => {
               .map((e) => `<div class="cmd"><div><code>git commit -m "${escapeHtml(e)}"</code></div></div>`)
               .join("")}</div>`
           : ""
-      }${evidenceList(c.evidence, data)}`,
+      }${evidenceList(c.evidence, data, inferred(ctx, c))}`,
     });
   }
 
@@ -484,11 +493,11 @@ const quality: Builder = (ctx) => {
         !isBlank(tst.command)
           ? `<div class="fact"><span class="label">${t.quality.run}</span><span class="inline-cmd"><code>${escapeHtml(tst.command)}</code><button type="button" class="copy" data-copy="${escapeHtml(tst.command)}" data-done="${escapeHtml(t.setup.copied)}">${t.setup.copy}</button></span></div>`
           : ""
-      }</div>${evidenceList(tst.evidence, data)}`
+      }</div>${evidenceList(tst.evidence, data, inferred(ctx, tst))}`
     : "";
   const checkList = checks.length
     ? `<p class="mini-label sub">${t.quality.checks}</p><ol class="timeline reveal">${checks
-        .map((c) => `<li><span class="when">${escapeHtml(c.when || "•")}</span><div><strong>${escapeHtml(c.name)}</strong>${c.description ? `<p>${text(c.description)}</p>` : ""}${evidenceList(c.evidence, data)}</div></li>`)
+        .map((c) => `<li><span class="when">${escapeHtml(c.when || "•")}</span><div><strong>${escapeHtml(c.name)}</strong>${c.description ? `<p>${text(c.description)}</p>` : ""}${evidenceList(c.evidence, data, inferred(ctx, c))}</div></li>`)
         .join("")}</ol>`
     : "";
 
@@ -630,6 +639,81 @@ const mission: Builder = (ctx) => {
   );
 };
 
+const fill = (template: string, values: Record<string, string | number>) => template.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ""));
+
+function metricTile(label: string, value: string, detail: string, level: Level, t: Copy): string {
+  return `<div class="card metric" data-level="${level}"><span class="metric-label">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}<span class="level"><i></i>${escapeHtml(t.executive.levels[level])}</span></div>`;
+}
+
+const executive: Builder = (ctx) => {
+  const { t, data, health } = ctx;
+  const m = t.executive.metrics;
+  const exec = data.executive;
+  const slides: Slide[] = [];
+
+  if (health) {
+    const h = health;
+    const tiles = [
+      metricTile(m.releases, h.releases.last12m ? fill(m.releasesValue, { n: h.releases.last12m }) : m.releasesNone, h.releases.medianDays ? (h.releases.medianDays <= 1 ? m.releasesDaily : fill(m.releasesEvery, { d: h.releases.medianDays })) : h.releases.lastTag ?? "", h.releases.level, t),
+      metricTile(m.activity, fill(m.activityValue, { n: h.activity.perMonth }), "", h.activity.level, t),
+      metricTile(m.knowledge, fill(m.knowledgeValue, { n: h.knowledge.people, total: h.knowledge.authors }), "", h.knowledge.level, t),
+      metricTile(m.debt, fill(m.debtValue, { n: h.debt.markers, k: h.debt.perKloc }), "", h.debt.level, t),
+      metricTile(m.tests, h.tests.coverage !== undefined ? fill(m.testsCoverage, { n: h.tests.coverage }) : fill(m.testsFiles, { t: h.tests.testFiles, s: h.tests.sourceFiles }), h.tests.coverage !== undefined ? fill(m.testsFiles, { t: h.tests.testFiles, s: h.tests.sourceFiles }) : "", h.tests.level, t),
+      metricTile(m.dependencies, fill(m.dependenciesValue, { n: h.dependencies.total }), h.dependencies.restrictive.length ? fill(m.dependenciesRestrictive, { list: h.dependencies.restrictive.map((d) => `${d.name} (${d.license})`).join(", ") }) : "", h.dependencies.level, t),
+    ];
+    slides.push({ chapter: "executive", kind: "health", title: t.executive.title, html: `${head(ctx, "executive", t.executive.title, exec?.summary?.trim() || t.executive.lede)}<div class="metrics reveal">${tiles.join("")}</div>` });
+  }
+
+  // integrações: as detectadas, com o papel que a IA explicou, mais as que só a IA achou
+  const notes = filled(exec?.integrations);
+  const detected = ctx.integrations ?? [];
+  const byName = new Map(notes.map((n) => [n.name.trim().toLowerCase(), n]));
+  const items = [
+    ...detected.map((d) => ({ name: d.name, category: d.category as string, note: byName.get(d.name.toLowerCase()), source: d.source })),
+    ...notes.filter((n) => !detected.some((d) => d.name.toLowerCase() === n.name.trim().toLowerCase())).map((n) => ({ name: n.name, category: "other", note: n, source: "" })),
+  ];
+  if (items.length) {
+    const order = Object.keys(t.executive.categories);
+    items.sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
+    slides.push(
+      ...paged(ctx, "executive", items, 9, t.executive.integrationsTitle, t.executive.integrationsLede, (page) =>
+        `<div class="grid integrations reveal">${page
+          .map(
+            (i) =>
+              `<div class="card integration"><div class="card-top"><h3>${escapeHtml(i.name)}</h3>${i.category === "other" ? "" : `<span class="badge">${escapeHtml(t.executive.categories[i.category] ?? i.category)}</span>`}</div>${i.note?.role?.trim() ? `<p>${text(i.note.role)}</p>` : ""}${
+                i.note && filled(i.note.evidence).length ? evidenceList(i.note.evidence, data) : i.source ? `<p class="source"><code>${escapeHtml(i.source)}</code></p>` : ""
+              }</div>`,
+          )
+          .join("")}</div>`,
+        "integrations",
+      ),
+    );
+  }
+
+  const risks = filled(exec?.risks).slice(0, 3);
+  const hot = health?.hotspots ?? [];
+  if (risks.length || hot.length) {
+    const riskHtml = risks
+      .map((r) => `<div class="card risk"><span class="emoji" aria-hidden="true">⚠️</span><div><h3>${escapeHtml(r.title)}</h3><p>${text(r.description)}</p>${evidenceList(r.evidence, data, inferred(ctx, r))}</div></div>`)
+      .join("");
+    const max = Math.max(1, ...hot.map((x) => x.commits));
+    const hotHtml = hot.length
+      ? `<div class="card hotspots"><span class="label">${escapeHtml(t.executive.hotspots)}</span><ol>${hot
+          .map((x) => `<li><code title="${escapeHtml(x.file)}"><bdi>${escapeHtml(x.file)}</bdi></code><span class="hot-bar"><span style="width:${Math.round((x.commits / max) * 100)}%"></span></span><small>${x.commits} ${escapeHtml(t.executive.commits)}</small></li>`)
+          .join("")}</ol></div>`
+      : "";
+    slides.push({ chapter: "executive", kind: "risks", title: t.executive.risksTitle, html: `${head(ctx, "executive", t.executive.risksTitle, t.executive.risksLede)}<div class="risks reveal">${riskHtml}${hotHtml}</div>` });
+  }
+  return slides;
+};
+
+const questions: Builder = (ctx) => {
+  const { t, data } = ctx;
+  return paged(ctx, "questions", filled(data.openQuestions).slice(0, 6), 3, t.questions.title, t.questions.lede, (page) =>
+    `<div class="stack-list reveal">${page.map((q) => `<div class="card question"><span class="emoji" aria-hidden="true">💬</span><div><h3>${escapeHtml(q.question)}</h3>${q.why?.trim() ? `<p>${text(q.why)}</p>` : ""}</div></div>`).join("")}</div>`,
+  );
+};
+
 /** Capítulos do meio, em ordem narrativa: do porquê ao código. */
 const people: Builder = (ctx) => {
   const { t, data } = ctx;
@@ -649,6 +733,7 @@ export const CHAPTERS: [ChapterId, Builder][] = [
   ["why", why],
   ["business", business],
   ["product", product],
+  ["executive", executive],
   ["language", language],
   ["rules", rules],
   ["stack", stack],
@@ -662,6 +747,7 @@ export const CHAPTERS: [ChapterId, Builder][] = [
   ["tours", tours],
   ["gotchas", gotchas],
   ["todos", todos],
+  ["questions", questions],
   ["mission", mission],
   ["cheatsheet", cheatsheet],
 ];

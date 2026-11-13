@@ -55,6 +55,12 @@ function filledData() {
   data.docs = [{ title: "README", file: "src/index.js", why: "Visão geral" }];
   data.codeNotes = [{ title: "Não mexer no cálculo", description: "Usado pelo financeiro", file: "src/index.js:1", kind: "IMPORTANT" }];
   data.todos = [{ title: "Frete internacional", description: "Ainda não calcula", file: "src/index.js:2", kind: "TODO", impact: "Afeta pedidos de fora" }];
+  data.executive = {
+    summary: "Em produção e crescendo; o frete internacional é o próximo passo.",
+    risks: [{ title: "Frete só nacional", description: "Pedidos de fora falham no checkout.", evidence: ["src/index.js:2"], confidence: "verified" }],
+    integrations: [{ name: "Stripe", role: "Cobra os pedidos no checkout.", evidence: ["src/index.js"] }],
+  };
+  data.openQuestions = [{ question: "Qual o SLA do checkout?", why: "Não há alerta nem doc de SLA no repositório." }];
   return data;
 }
 

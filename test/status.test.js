@@ -69,7 +69,7 @@ test("status aponta itens desatualizados, linhas que andaram, renomeações e ar
   const out = execFileSync("node", [CLI, "status", "--fix"], { cwd: dir, env }).toString();
   assert.match(out, /Itens que podem estar desatualizados/);
   assert.match(out, /src\/index\.js:2 → src\/index\.js:4/);
-  assert.match(out, /Corrigi 3 evidência/);
+  assert.match(out, /Corrigi 4 evidência/);
   const fixed = JSON.parse(readFileSync(join(dir, "onboarding.json"), "utf8"));
   assert.equal(fixed.domain.businessRules[0].evidence[0], "src/index.js:4");
   assert.equal(fixed.conventions[0].evidence[0], "src/new.js");
