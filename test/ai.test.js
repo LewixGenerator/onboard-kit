@@ -49,7 +49,8 @@ test("MCP: initialize, tools/list e tools/call pelo stdio", async () => {
   await new Promise((r) => child.on("close", r));
 });
 
-test("init --ai roda a CLI de IA instalada e valida no fim", () => {
+// a CLI falsa é um script com shebang, que o Windows não executa
+test("init --ai roda a CLI de IA instalada e valida no fim", { skip: process.platform === "win32" }, () => {
   const dir = tmpProject({ "package.json": JSON.stringify({ name: "app", dependencies: { express: "5" } }), "src/index.js": "line1\n// TODO: frete internacional\nline3\n" });
   const bin = join(dir, ".bin");
   mkdirSync(bin);
@@ -66,7 +67,7 @@ fs.writeFileSync("onboarding.json", fs.readFileSync(${JSON.stringify(join(dir, "
   );
   chmodSync(fake, 0o755);
   writeFileSync(join(dir, "filled.json"), JSON.stringify(filledData()));
-  const env = { ...process.env, NO_COLOR: "1", PATH: `${bin}:${process.env.PATH}` };
+  const env = { ...process.env, NO_COLOR: "1", PATH: `${bin}${require("node:path").delimiter}${process.env.PATH}` };
   const out = execFileSync("node", [CLI, "init", "--no-route", "--ai"], { cwd: dir, env }).toString();
   assert.match(out, /Rodando claude/);
   assert.match(out, /válido/);
