@@ -184,7 +184,7 @@
       "version": "nativo",
       "why": "Testes sem dependências extras.",
       "evidence": [
-        "test/core.test.js:1"
+        "test/cli.test.js:1"
       ]
     }
   ],

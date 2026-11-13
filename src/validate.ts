@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { parseColor } from "./brand";
+import { detectSubprojects } from "./detect";
 import { isBlank } from "./load";
 
 export interface Issue {
@@ -36,6 +37,8 @@ const ARRAY_SECTIONS: { path: string; key: string; evidence?: "error" | "warning
   { path: "gettingStarted.envVars", key: "name" },
   { path: "architecture.patterns", key: "name", evidence: "warning", optional: true },
   { path: "subprojects", key: "path", optional: true },
+  { path: "tracks", key: "id", optional: true },
+  { path: "people", key: "name", optional: true },
   { path: "workflow.branching.branches", key: "pattern", optional: true },
   { path: "workflow.release.environments", key: "name", optional: true },
   { path: "quality.checks", key: "name", evidence: "warning", optional: true },
@@ -53,9 +56,69 @@ const MAX_ITEMS: Record<string, number> = {
   codeNotes: 6,
   todos: 8,
   gotchas: 6,
+  tracks: 6,
+  people: 8,
 };
 
+const CHAPTER_IDS = new Set(["why", "business", "product", "language", "rules", "stack", "architecture", "setup", "conventions", "workflow", "people", "quality", "docs", "tours", "gotchas", "todos", "mission", "cheatsheet"]);
+const PERSONAL_DATA = /[\w.+-]+@[\w-]+\.[\w.]+|\+?\d[\d\s().-]{8,}\d/;
+
 const EVIDENCE_KEYS = new Set(["evidence", "entryPoints", "files"]);
+
+/** Tamanho a partir do qual o texto não cabe bem num slide. */
+const TEXT_LIMITS: Record<string, number> = { tagline: 160, purpose: 700, summary: 700 };
+const LONG_TEXT_KEYS = new Set(["description", "why", "explanation", "responsibility", "definition", "valueProposition", "model", "context", "decision", "impact", "approach", "process", "audience"]);
+const LONG_TEXT = 450;
+
+const MERMAID_TYPES =
+  /^(graph|flowchart)(\s+(TB|TD|BT|RL|LR))?\s*;?$|^(sequenceDiagram|classDiagram(-v2)?|stateDiagram(-v2)?|erDiagram|gantt|journey|pie|mindmap|timeline|gitGraph|quadrantChart|requirementDiagram|C4Context|C4Container|C4Component|C4Dynamic|C4Deployment|sankey-beta|xychart-beta|block-beta|packet-beta|architecture-beta|kanban)\b/;
+
+/** Erros comuns de Mermaid que quebram o diagrama na tela. */
+export function checkMermaid(diagram: string): Issue[] {
+  const issues: Issue[] = [];
+  const lines = diagram.split("\n").map((l) => l.trim());
+  let i = 0;
+  if (lines[0] === "---") i = lines.indexOf("---", 1) + 1; // frontmatter
+  while (i < lines.length && (!lines[i] || lines[i].startsWith("%%"))) i++;
+  const header = lines[i] ?? "";
+  if (!MERMAID_TYPES.test(header)) {
+    issues.push({ level: "error", path: "architecture.diagram", message: `tipo de diagrama Mermaid desconhecido na primeira linha: "${header.slice(0, 40)}" (use graph TD, flowchart LR, sequenceDiagram...)` });
+    return issues;
+  }
+  const body = lines.slice(i + 1).join("\n").replace(/"[^"\n]*"/g, '""');
+  const pairs: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+  const stack: string[] = [];
+  for (const ch of body.replace(/%%.*$/gm, "").replace(/-->|==>|-\.->|<--|--[ox]|[ox]--/g, "")) {
+    if ("([{".includes(ch)) stack.push(ch);
+    else if (ch in pairs && stack.pop() !== pairs[ch]) {
+      issues.push({ level: "warning", path: "architecture.diagram", message: `parênteses/colchetes desbalanceados perto de "${ch}"` });
+      return issues;
+    }
+  }
+  if (stack.length) issues.push({ level: "warning", path: "architecture.diagram", message: `"${stack[stack.length - 1]}" aberto e não fechado` });
+  if (/^(graph|flowchart)/.test(header)) {
+    // A[texto (assim)] quebra; formatos como B[(Banco)], C[[Sub]] e D[/x/] são válidos
+    const bad = lines.slice(i + 1).find((l) => /\[[^\]"([/\\][^\]"]*[()][^\]"]*\]/.test(l));
+    if (bad) issues.push({ level: "warning", path: "architecture.diagram", message: `texto com parênteses ou colchetes dentro de um nó quebra o Mermaid; use aspas: A["texto (assim)"]. Linha: ${bad.slice(0, 60)}` });
+  }
+  return issues;
+}
+
+/** Textos longos demais para um slide. */
+function checkLength(value: unknown, at: string, issues: Issue[]): void {
+  if (Array.isArray(value)) return value.forEach((v, i) => checkLength(v, `${at}[${i}]`, issues));
+  if (!isObj(value)) return;
+  for (const [key, v] of Object.entries(value)) {
+    if (key.startsWith("_") || key === "meta") continue;
+    const here = at ? `${at}.${key}` : key;
+    const limit = TEXT_LIMITS[key] ?? (LONG_TEXT_KEYS.has(key) ? LONG_TEXT : undefined);
+    if (typeof v === "string" && limit && v.length > limit) {
+      issues.push({ level: "warning", path: here, message: `texto longo para um slide (${v.length} caracteres): resuma em até ${limit}` });
+    } else {
+      checkLength(v, here, issues);
+    }
+  }
+}
 
 const SECRET_PATTERNS: { name: string; re: RegExp; level: Issue["level"] }[] = [
   { name: "chave AWS", re: /\bAKIA[0-9A-Z]{16}\b/, level: "error" },
@@ -104,7 +167,7 @@ function checkEvidence(ref: unknown, at: string, root: string, issues: Issue[]):
   if (line !== undefined && statSync(full).isFile()) {
     const total = readFileSync(full, "utf8").split("\n").length;
     if (line < 1 || line > total) {
-      issues.push({ level: "warning", path: at, message: `linha ${line} não existe em "${file}" (${total} linhas)` });
+      issues.push({ level: "warning", path: at, message: `linha ${line} não existe em "${file}" (${total} linhas): \`npx onboarding-kit status --fix\` acha a linha nova` });
     }
   }
 }
@@ -126,6 +189,46 @@ function walkEvidence(value: unknown, at: string, root: string, issues: Issue[])
       walkEvidence(v, here, root, issues);
     }
   }
+}
+
+/** Seções que contam para a cobertura (as mesmas que a tela de espera acompanha). */
+const COVERAGE_SECTIONS = ["project", "business", "features", "domain", "stack", "architecture", "gettingStarted", "conventions", "tours", "gotchas", "decisions", "firstTasks", "workflow", "quality", "docs", "todos", "brand"];
+
+export interface Coverage {
+  /** 0–100: 70% pelas seções preenchidas, 30% pela densidade de evidências. */
+  score: number;
+  filled: number;
+  total: number;
+  /** Referências a arquivos por item com campo de evidência. */
+  evidencePerItem: number;
+}
+
+/** Nota de cobertura do onboarding, para acompanhar na CI e mostrar como badge. */
+export function coverageScore(data: unknown): Coverage {
+  const obj = isObj(data) ? data : {};
+  const filled = COVERAGE_SECTIONS.filter((key) => !isBlank(obj[key])).length;
+  let items = 0;
+  let refs = 0;
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!isObj(value)) return;
+    const evidence = Object.entries(value).filter(([k]) => EVIDENCE_KEYS.has(k));
+    if (evidence.length && !isBlank(value)) {
+      items++;
+      for (const [, v] of evidence) if (Array.isArray(v)) refs += v.filter((r) => !isBlank(r)).length;
+    }
+    for (const [k, v] of Object.entries(value)) if (!k.startsWith("_") && k !== "meta") visit(v);
+  };
+  visit(obj);
+  const evidencePerItem = items ? Math.round((refs / items) * 10) / 10 : 0;
+  const score = Math.round(100 * (0.7 * (filled / COVERAGE_SECTIONS.length) + 0.3 * Math.min(1, evidencePerItem / 1.5)));
+  return { score, filled, total: COVERAGE_SECTIONS.length, evidencePerItem };
+}
+
+/** JSON do endpoint do shields.io para o badge de cobertura. */
+export function coverageBadge(coverage: Coverage): Record<string, unknown> {
+  const color = coverage.score >= 85 ? "brightgreen" : coverage.score >= 70 ? "green" : coverage.score >= 50 ? "yellow" : "orange";
+  return { schemaVersion: 1, label: "onboarding", message: `${coverage.score}%`, color };
 }
 
 export function validateOnboarding(data: unknown, options: ValidateOptions): Issue[] {
@@ -150,7 +253,7 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
       if (isBlank(meta.commit)) {
         warn("meta.commit", "vazio: preencha com `git rev-parse HEAD`");
       } else if (!options.headCommit.startsWith(String(meta.commit)) && !String(meta.commit).startsWith(options.headCommit)) {
-        warn("meta.commit", `gerado no commit ${String(meta.commit).slice(0, 7)}, mas o HEAD é ${options.headCommit.slice(0, 7)}: peça à IA para atualizar`);
+        warn("meta.commit", `gerado no commit ${String(meta.commit).slice(0, 7)}, mas o HEAD é ${options.headCommit.slice(0, 7)}: rode \`npx onboarding-kit status\` para ver o que mudou`);
       }
     }
   }
@@ -176,6 +279,8 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
     if (isBlank(architecture.summary)) warn("architecture.summary", "vazio");
     if (typeof architecture.diagram === "string" && architecture.diagram.trim().startsWith("```")) {
       err("architecture.diagram", "remova as cercas ``` e deixe só o código Mermaid");
+    } else if (typeof architecture.diagram === "string" && !isBlank(architecture.diagram)) {
+      issues.push(...checkMermaid(architecture.diagram));
     }
   }
 
@@ -221,6 +326,7 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
       continue;
     }
     let real = 0;
+    const seen = new Map<string, number>();
     list.forEach((item, i) => {
       const at = `${section.path}[${i}]`;
       if (isBlank(item)) {
@@ -230,6 +336,11 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
       real++;
       if (!isObj(item)) return;
       if (isBlank(item[section.key])) err(`${at}.${section.key}`, "obrigatório");
+      else if (typeof item[section.key] === "string") {
+        const id = String(item[section.key]).trim().toLowerCase();
+        if (seen.has(id)) warn(`${at}.${section.key}`, `repetido: igual a ${section.path}[${seen.get(id)}]`);
+        else seen.set(id, i);
+      }
       if (section.evidence && Array.isArray(item.evidence) && item.evidence.every(isBlank)) {
         issues.push({ level: section.evidence, path: `${at}.evidence`, message: "sem evidência no código" });
       }
@@ -240,6 +351,16 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
   }
 
   const subprojects = data.subprojects;
+  const detected = detectSubprojects(options.root);
+  if (detected.length && subprojects === undefined) {
+    warn("subprojects", `seção ausente: o repositório tem ${detected.length} projeto(s) (${detected.slice(0, 5).map((s) => s.path).join(", ")})`);
+  } else if (detected.length > 1 && Array.isArray(subprojects)) {
+    const listed = new Set(subprojects.filter(isObj).map((s) => String(s.path ?? "").replace(/\/+$/, "")));
+    const missing = detected.filter((s) => !listed.has(s.path));
+    if (missing.length) {
+      warn("subprojects", `${subprojects.length ? "projeto(s) do repositório fora da lista" : "vazio, mas o repositório tem estes projetos"}: ${missing.map((s) => s.path).join(", ")} (ignore se forem exemplos ou fixtures)`);
+    }
+  }
   if (Array.isArray(subprojects)) {
     const names = new Set(subprojects.filter(isObj).map((s) => s.name));
     subprojects.forEach((s, i) => {
@@ -252,6 +373,25 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
           if (!isBlank(dep) && !names.has(dep)) warn(`${at}.dependsOn[${j}]`, `"${dep}" não está em subprojects`);
         });
       }
+    });
+  }
+
+  if (Array.isArray(data.tracks)) {
+    const paths = new Set(Array.isArray(subprojects) ? subprojects.filter(isObj).map((s) => s.path) : []);
+    data.tracks.forEach((track, i) => {
+      if (!isObj(track) || isBlank(track)) return;
+      if (typeof track.id === "string" && track.id && !/^[a-z0-9-]+$/.test(track.id)) err(`tracks[${i}].id`, `use minúsculas e hífens (vai na URL): "${track.id}"`);
+      (Array.isArray(track.chapters) ? track.chapters : []).forEach((ch, j) => {
+        if (!isBlank(ch) && !CHAPTER_IDS.has(String(ch))) warn(`tracks[${i}].chapters[${j}]`, `capítulo desconhecido: "${ch}"`);
+      });
+      (Array.isArray(track.paths) ? track.paths : []).forEach((p, j) => {
+        if (!isBlank(p) && !paths.has(p)) warn(`tracks[${i}].paths[${j}]`, `"${p}" não está em subprojects`);
+      });
+    });
+  }
+  if (Array.isArray(data.people)) {
+    data.people.forEach((person, i) => {
+      if (isObj(person) && PERSONAL_DATA.test(JSON.stringify(person))) err(`people[${i}]`, "parece ter e-mail ou telefone: use só o canal do time ou o @usuario");
     });
   }
 
@@ -268,6 +408,7 @@ export function validateOnboarding(data: unknown, options: ValidateOptions): Iss
   }
 
   walkEvidence(data, "", options.root, issues);
+  checkLength(data, "", issues);
 
   // segredos (ignora as instruções)
   const { _instructions, ...content } = data;

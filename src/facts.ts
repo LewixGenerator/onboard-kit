@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
-import { dependencyNames, detectProject, LANGUAGE_BY_EXT, readProjectManifests, type ProjectProfile } from "./detect";
+import { dependencyNames, detectProject, detectSubprojects, LANGUAGE_BY_EXT, readProjectManifests, type ProjectProfile } from "./detect";
 
 /* ───────────────────────── marcadores no código ───────────────────────── */
 
@@ -17,7 +17,7 @@ export interface Marker {
 
 export interface MarkerScan {
   counts: Record<string, number>;
-  /** Quantos marcadores de TODO há em cada pasta de primeiro nível. */
+  /** Quantos marcadores de TODO há em cada pasta de primeiro nível (ou em cada subprojeto, num monorepo). */
   byFolder: Record<string, number>;
   items: Marker[];
   scannedFiles: number;
@@ -75,7 +75,13 @@ function normalizeKind(kind: string): string {
   return kind;
 }
 
-export function scanMarkers(root: string, files = listRepoFiles(root)): MarkerScan {
+/** Agrupa arquivos pelo subprojeto que os contém; fora deles, pela pasta de primeiro nível. */
+export function markerFolder(subprojects: { path: string }[]): (file: string) => string {
+  const paths = subprojects.map((s) => s.path).sort((a, b) => b.length - a.length);
+  return (file) => paths.find((p) => file.startsWith(`${p}/`)) ?? (file.includes("/") ? file.split("/")[0] : ".");
+}
+
+export function scanMarkers(root: string, files = listRepoFiles(root), folderOf = markerFolder([])): MarkerScan {
   const counts: Record<string, number> = {};
   const byFolder: Record<string, number> = {};
   const items: Marker[] = [];
@@ -100,7 +106,7 @@ export function scanMarkers(root: string, files = listRepoFiles(root)): MarkerSc
       const text = m[2].replace(/\s*(\*\/|-->|\*\/\}).*$/, "").trim().slice(0, 180);
       counts[kind] = (counts[kind] ?? 0) + 1;
       if ((TODO_KINDS as readonly string[]).includes(kind)) {
-        const folder = file.includes("/") ? file.split("/")[0] : ".";
+        const folder = folderOf(file);
         byFolder[folder] = (byFolder[folder] ?? 0) + 1;
       }
       items.push({ kind, text, file: `${file}:${i + 1}` });
@@ -116,7 +122,7 @@ const MARKER_CACHE_MS = 30_000;
 export function cachedMarkers(root: string): MarkerScan {
   const hit = markerCache.get(root);
   if (hit && Date.now() - hit.at < MARKER_CACHE_MS) return hit.scan;
-  const scan = scanMarkers(root);
+  const scan = scanMarkers(root, listRepoFiles(root), markerFolder(detectSubprojects(root)));
   markerCache.set(root, { at: Date.now(), scan });
   return scan;
 }
@@ -194,6 +200,8 @@ export function gitFacts(root: string): GitFacts | undefined {
 /* ───────────────────────── arquivos que revelam o processo ───────────────────────── */
 
 export interface RepoFacts {
+  /** Subprojeto analisado (facts --project); vazio quando é o repositório inteiro. */
+  scope?: string;
   /** Framework, UI, runtime, gerenciador de pacotes e linguagem detectados. */
   project: ProjectProfile;
   /** Linguagens do repositório por quantidade de arquivos, da mais usada para a menos. */
@@ -205,6 +213,42 @@ export interface RepoFacts {
   /** Sinais de arquitetura: monorepo, vários serviços, Docker... */
   architectureSignals: string[];
   markers: MarkerScan;
+  /** Só com facts --people: donos de código e quem mais fez commits em cada área. */
+  people?: PeopleFacts;
+}
+
+export interface PeopleFacts {
+  codeowners: { pattern: string; owners: string[] }[];
+  /** Área (subprojeto ou pasta de primeiro nível) → autores com mais commits no último ano. */
+  areas: { area: string; authors: { name: string; commits: number }[] }[];
+}
+
+/** Donos de código (CODEOWNERS) e autores mais ativos por área. Sem e-mails. */
+export function peopleFacts(root: string, areas: string[]): PeopleFacts {
+  const codeowners: PeopleFacts["codeowners"] = [];
+  for (const file of [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"]) {
+    let source: string;
+    try {
+      source = readFileSync(join(root, file), "utf8");
+    } catch {
+      continue;
+    }
+    for (const line of source.split("\n")) {
+      const [pattern, ...owners] = line.replace(/#.*$/, "").trim().split(/\s+/);
+      if (pattern && owners.length) codeowners.push({ pattern, owners: owners.filter((o) => !o.includes("@") || o.startsWith("@")) });
+    }
+    break;
+  }
+  const result: PeopleFacts["areas"] = [];
+  for (const area of areas.slice(0, 20)) {
+    const counts: Record<string, number> = {};
+    for (const name of (git(root, ["log", "--since=12.months", "--no-merges", "--format=%aN", "--", area]) ?? "").split("\n")) {
+      if (name.trim() && !/\[bot\]|^dependabot|^renovate/i.test(name)) counts[name.trim()] = (counts[name.trim()] ?? 0) + 1;
+    }
+    const authors = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, commits]) => ({ name, commits }));
+    if (authors.length) result.push({ area, authors });
+  }
+  return { codeowners: codeowners.slice(0, 40), areas: result };
 }
 
 const FILE_GROUPS: [string, RegExp][] = [
@@ -236,15 +280,27 @@ const ARCHITECTURE_DEPS: [string, string][] = [
   ["tsyringe", "injeção de dependência (tsyringe)"], ["awilix", "injeção de dependência (Awilix)"], ["@cloudflare/workers-types", "Cloudflare Workers"], ["wrangler", "Cloudflare Workers"],
 ];
 
-export function collectFacts(root: string): RepoFacts {
-  const files = listRepoFiles(root);
+export interface CollectOptions {
+  /** Pasta de um subprojeto: código, testes, TODOs e perfil só dele (CI, hooks e git continuam do repositório). */
+  project?: string;
+  /** Inclui donos de código e autores por área (nomes de pessoas: só quando pedido). */
+  people?: boolean;
+}
+
+export function collectFacts(root: string, options: CollectOptions = {}): RepoFacts {
+  const allFiles = listRepoFiles(root);
+  const scope = options.project?.replace(/^\.\//, "").replace(/\/+$/, "") || undefined;
+  const prefix = scope ? `${scope}/` : "";
+  const base = scope ? join(root, scope) : root;
+  const files = scope ? allFiles.filter((f) => f.startsWith(prefix)) : allFiles;
   const groups: Record<string, string[]> = {};
   for (const [name, re] of FILE_GROUPS) {
-    const hits = files.filter((f) => re.test(f) && !f.split("/").some((p) => SKIP_DIRS.has(p)));
+    // processos (CI, hooks, PR) valem para o repositório todo; num subprojeto, os arquivos dele também entram
+    const hits = [...new Set([...allFiles.filter((f) => re.test(f)), ...files.filter((f) => re.test(f.slice(prefix.length)))])].filter((f) => !f.split("/").some((p) => SKIP_DIRS.has(p)));
     if (hits.length) groups[name] = hits.slice(0, 25);
   }
 
-  const manifests = readProjectManifests(root);
+  const manifests = readProjectManifests(base);
   const pkg = manifests.pkg ?? {};
   const deps = dependencyNames(manifests.pkg, manifests.deno);
 
@@ -262,9 +318,9 @@ export function collectFacts(root: string): RepoFacts {
   if (groups.monorepo || pkg.workspaces) signals.push(`monorepo (${[...(groups.monorepo ?? []), pkg.workspaces ? "package.json#workspaces" : ""].filter(Boolean).join(", ")})`);
   const dockerfiles = files.filter((f) => /(^|\/)Dockerfile[^/]*$/.test(f));
   if (dockerfiles.length > 1) signals.push(`${dockerfiles.length} Dockerfiles: ${dockerfiles.slice(0, 6).join(", ")} (possíveis serviços separados)`);
-  const serviceDirs = [...new Set(files.map((f) => /^(apps|services|packages|microservices)\/([^/]+)\//.exec(f)).filter(Boolean).map((m) => `${m![1]}/${m![2]}`))];
+  const serviceDirs = [...new Set(files.map((f) => /^(apps|services|packages|microservices)\/([^/]+)\//.exec(f.slice(prefix.length))).filter(Boolean).map((m) => `${m![1]}/${m![2]}`))];
   if (serviceDirs.length) signals.push(`pastas de apps/serviços: ${serviceDirs.slice(0, 12).join(", ")}`);
-  if (existsSync(join(root, "serverless.yml")) || existsSync(join(root, "serverless.ts"))) signals.push("serverless.yml (Serverless Framework)");
+  if (existsSync(join(base, "serverless.yml")) || existsSync(join(base, "serverless.ts"))) signals.push("serverless.yml (Serverless Framework)");
   const seen = new Set<string>();
   for (const [dep, label] of ARCHITECTURE_DEPS) {
     if (deps[dep] && !seen.has(label)) {
@@ -273,15 +329,17 @@ export function collectFacts(root: string): RepoFacts {
     }
   }
   if (files.some((f) => /(^|\/)wrangler\.(toml|jsonc?)$/.test(f)) && !seen.has("Cloudflare Workers")) signals.push("Cloudflare Workers (wrangler)");
-  const fnDirs = ["netlify/functions", "api", "functions", "supabase/functions", "amplify"].filter((dir) => files.some((f) => f.startsWith(`${dir}/`)));
-  if (fnDirs.length && (existsSync(join(root, "vercel.json")) || existsSync(join(root, "netlify.toml")) || fnDirs.some((d) => d !== "api"))) signals.push(`funções serverless: ${fnDirs.join(", ")}`);
+  const fnDirs = ["netlify/functions", "api", "functions", "supabase/functions", "amplify"].filter((dir) => files.some((f) => f.startsWith(`${prefix}${dir}/`)));
+  if (fnDirs.length && (existsSync(join(base, "vercel.json")) || existsSync(join(base, "netlify.toml")) || fnDirs.some((d) => d !== "api"))) signals.push(`funções serverless: ${fnDirs.join(", ")}`);
   const layered = ["domain", "application", "infrastructure", "infra", "adapters", "ports", "use-cases", "usecases", "entities", "repositories", "controllers", "services"].filter((dir) =>
     files.some((f) => f.split("/").slice(0, -1).includes(dir)),
   );
   if (layered.length >= 2) signals.push(`pastas de camadas: ${layered.join(", ")}`);
 
+  const project = detectProject(base);
   return {
-    project: detectProject(root),
+    scope,
+    project,
     languages: Object.entries(languageCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
@@ -296,6 +354,9 @@ export function collectFacts(root: string): RepoFacts {
       inTestFolders: tests.length - colocated,
     },
     architectureSignals: signals,
-    markers: scanMarkers(root, files),
+    markers: scanMarkers(root, files, markerFolder(scope ? [] : project.subprojects)),
+    people: options.people
+      ? peopleFacts(root, scope ? [scope] : project.subprojects.length ? project.subprojects.map((s) => s.path) : [...new Set(files.filter((f) => f.includes("/") && !f.startsWith(".")).map((f) => f.split("/")[0]))])
+      : undefined,
   };
 }

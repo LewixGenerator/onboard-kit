@@ -7,6 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/onboarding-kit?color=cb3837&logo=npm&label=npm)](https://www.npmjs.com/package/onboarding-kit)
 [![npm downloads](https://img.shields.io/npm/dm/onboarding-kit?color=0b7285&logo=npm&label=downloads)](https://www.npmjs.com/package/onboarding-kit)
 [![CI](https://github.com/LewixGenerator/onboard-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/LewixGenerator/onboard-kit/actions/workflows/ci.yml)
+[![onboarding coverage](https://img.shields.io/endpoint?url=https://lewixgenerator.github.io/onboard-kit/badge.json)](https://lewixgenerator.github.io/onboard-kit/)
 [![license](https://img.shields.io/npm/l/onboarding-kit?color=2f9e44)](LICENSE)
 [![node](https://img.shields.io/node/v/onboarding-kit?logo=node.js&logoColor=white&color=339933)](https://nodejs.org)
 [![types](https://img.shields.io/npm/types/onboarding-kit?logo=typescript&logoColor=white&color=3178c6)](https://www.typescriptlang.org)
@@ -53,7 +54,7 @@
 ![Bun](https://img.shields.io/badge/Bun-000?logo=bun&logoColor=white)
 ![Deno](https://img.shields.io/badge/Deno-000?logo=deno&logoColor=white)
 
-[Repositório no GitHub](https://github.com/LewixGenerator/onboard-kit) · [npm](https://www.npmjs.com/package/onboarding-kit) · [Reportar um problema](https://github.com/LewixGenerator/onboard-kit/issues)
+**[Ver a demo](https://lewixgenerator.github.io/onboard-kit/)** · [English](README.en.md) · [Repositório no GitHub](https://github.com/LewixGenerator/onboard-kit) · [npm](https://www.npmjs.com/package/onboarding-kit) · [Reportar um problema](https://github.com/LewixGenerator/onboard-kit/issues)
 
 </div>
 
@@ -79,13 +80,15 @@ O `init` detecta o framework e liga a rota `/onboarding` do jeito nativo de cada
 | Projeto | O que o `init` faz |
 |---|---|
 | **Next.js** (App Router) | cria `app/onboarding/route.ts` (ou `src/app/...`); no Pages Router mostra o trecho |
-| **Nuxt** | cria `server/routes/onboarding.get.ts` |
+| **Nuxt** | cria `server/routes/onboarding.ts` |
 | **SvelteKit** | cria `src/routes/onboarding/+server.ts` |
 | **NestJS** | adiciona `OnboardingModule.register()` em `src/app.module.ts` |
 | **Vite** (React, Vue, Svelte, Solid, Preact, Qwik, Lit) e **React Router 7 / Remix** | adiciona o plugin `onboarding()` no `vite.config` |
 | **Create React App** | cria `src/setupProxy.js` |
 | **Astro, Gatsby, Express, Fastify, Koa, Hono, Elysia, AdonisJS, Webpack/Vue CLI** | mostra o trecho de 2 ou 3 linhas para colar |
-| **Angular, React Native/Expo, Electron, bibliotecas e CLIs** | adiciona o script `npm run onboarding`, que abre a apresentação em `localhost:4321` |
+| **Angular, React Native/Expo, Electron, bibliotecas e CLIs** | só o script abaixo |
+
+Em todos os casos, o `init` também adiciona o script `onboarding` ao `package.json` (`npm run onboarding`, `pnpm onboarding`…), que abre a apresentação em `localhost:4321` sem precisar subir o app. Use `--no-script` para pular.
 
 Se a detecção errar, force com `--framework <id>`: `next`, `nuxt`, `sveltekit`, `astro`, `remix`, `gatsby`, `nest`, `adonis`, `express`, `fastify`, `koa`, `hono`, `elysia`, `angular`, `vite`, `cra`, `webpack`, `react-native`, `electron`, `library` ou `node`. Projetos Deno sem `package.json` são lidos pelo `deno.json`.
 
@@ -95,17 +98,66 @@ Depois, envie isto para a sua IA:
 
 Para ver o resultado, abra `/onboarding` com o app rodando em dev, ou rode `npx onboarding-kit serve`.
 
+Prefere não copiar e colar? `npx onboarding-kit init --ai` roda o Claude Code, o Codex ou o Gemini CLI instalado com o prompt e valida no final (`--ai codex` para escolher).
+
 Se você abrir `/onboarding` antes da IA terminar, a página mostra o prompt pronto para copiar, acompanha as seções conforme a IA preenche o arquivo e abre a apresentação sozinha quando ela termina. Sem `onboarding.json`, o prompt já pede para a IA rodar o `init` antes.
 
 ## Comandos
 
 | Comando | O que faz |
 |---|---|
-| `init` | Cria o `onboarding.json` e liga a rota. Opções: `--framework`, `--lang`, `--no-route`, `--force` |
+| `init` | Cria o `onboarding.json` e liga a rota. Opções: `--framework`, `--lang`, `--project` (monorepo), `--people`, `--ai`, `--no-route`, `--no-script`, `--force` |
 | `prompt` | Mostra o texto para enviar à IA |
-| `facts` | Lista os fatos que a IA usa como base: framework, UI, runtime e linguagens do repositório, branches, padrão dos commits recentes, CI, hooks, templates de PR, testes, subprojetos do monorepo (framework e dependências internas de cada um), sinais de arquitetura (monorepo, vários Dockerfiles, mensageria, pastas de camadas), TODOs e observações em comentários. `--json` para saída em JSON |
-| `validate` | Confere campos obrigatórios, itens-modelo esquecidos, se as evidências existem, se há segredos e se o JSON está atrás do commit atual. Sai com código 1 em caso de erro (útil na CI) |
-| `serve` | Abre a apresentação em `http://localhost:4321` (`--port` para mudar) |
+| `facts` | Lista os fatos que a IA usa como base: framework, UI, runtime e linguagens do repositório, branches, padrão dos commits recentes, CI, hooks, templates de PR, testes, subprojetos do monorepo (framework e dependências internas de cada um), sinais de arquitetura (monorepo, vários Dockerfiles, mensageria, pastas de camadas), TODOs e observações em comentários. `--project <pasta>` mostra os fatos de um subprojeto só; `--people` inclui CODEOWNERS e autores por área; `--json` para saída em JSON |
+| `validate` | Confere campos obrigatórios, itens-modelo esquecidos, se as evidências existem, se há segredos, textos longos demais para um slide, itens repetidos, erros comuns de Mermaid, subprojetos esquecidos e se o JSON está atrás do commit atual. Sai com código 1 em caso de erro. `--ci` gera anotações no GitHub Actions (automático lá dentro) e `--strict` trata avisos como erros. Mostra a nota de cobertura; `--min-score 70` falha abaixo dela e `--badge badge.json` grava o JSON de um badge do shields.io |
+| `status` | Compara o código com o commit em que o onboarding foi gerado: aponta os itens que citam arquivos que mudaram, evidências apagadas, arquivos novos que ninguém cita e monta o prompt para a IA atualizar só isso. `--fix` corrige sozinho as evidências que só mudaram de linha ou de arquivo, `--ai` manda o prompt direto para a IA instalada. Também lista o feedback deixado nos slides |
+| `agents` | Ensina sua IA a manter o onboarding em dia: adiciona um trecho ao `AGENTS.md` (e ao `CLAUDE.md` e `.github/copilot-instructions.md`, se existirem), cria o comando `/onboarding` do Claude Code e a regra do Cursor |
+| `mcp` | Servidor MCP (stdio) com as ferramentas `onboarding_facts`, `onboarding_status`, `onboarding_validate` e outras, para a IA receber JSON em vez de ler o terminal |
+| `serve` | Abre a apresentação em `http://localhost:4321` (`--port` para mudar). Mostra o projeto, os números do deck, a cobertura e as trilhas, e avisa no terminal cada vez que a IA grava o `onboarding.json` |
+| `export` | Gera um HTML único e estático da apresentação (`--out`, padrão `onboarding.html`), para GitHub Pages, intranet ou anexo. `--offline` embute o Mermaid e as fontes; cada trilha vira um arquivo ao lado (`onboarding.frontend.html`) |
+
+## Mantendo o onboarding em dia
+
+Cada afirmação do `onboarding.json` aponta para arquivos reais, e `meta.commit` guarda o commit analisado. Com isso, o `status` sabe exatamente o que envelheceu:
+
+```bash
+npx onboarding-kit status        # o que mudou e o prompt para a IA
+npx onboarding-kit status --fix  # corrige evidências que só mudaram de linha ou foram renomeadas
+```
+
+Rode `npx onboarding-kit agents` uma vez para a sua IA fazer isso sozinha depois de mudanças grandes.
+
+Na CI, este workflow anota no PR as evidências quebradas e mostra no resumo do job o que pode estar desatualizado:
+
+```yaml
+# .github/workflows/onboarding.yml
+name: Onboarding
+on: pull_request
+jobs:
+  onboarding:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # o status precisa do histórico até meta.commit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx onboarding-kit validate
+      - run: npx onboarding-kit status
+```
+
+### Servidor MCP
+
+Com o MCP, a IA chama `facts`, `status`, `validate` e a correção de evidências como ferramentas e recebe JSON estruturado:
+
+```bash
+claude mcp add onboarding-kit -- npx onboarding-kit mcp
+```
+
+No Cursor e em outros clientes, configure um servidor stdio com o comando `npx onboarding-kit mcp`.
+
+O `onboarding.json` aponta para um JSON Schema (`$schema`), então o editor e a IA ganham autocomplete e validação enquanto escrevem.
 
 ## A apresentação
 
@@ -119,6 +171,15 @@ Os capítulos entram com uma cortina animada, os elementos aparecem em cascata, 
 
 Navegação por ← →, espaço, swipe no celular ou pelos segmentos coloridos no topo. `O` abre o índice. O progresso e as tarefas marcadas ficam salvos no navegador. Tem tema claro e escuro. Capítulos sem conteúdo são pulados e listas longas viram vários slides.
 
+Cada slide tem um link direto, para mandar a parte certa para quem pergunta: `/onboarding#/arquitetura`, `/onboarding#/arquitetura/2`. O botão **Imprimir / PDF** (no índice e no final) gera um slide por página. A apresentação fala português, inglês e espanhol, conforme `meta.language`.
+
+- **Busca:** `Ctrl/Cmd+K` ou `/` procura em todos os slides, sem diferenciar acentos.
+- **Trechos de código:** os passos do tour, as regras de negócio e os cuidados mostram as linhas citadas na evidência (`arquivo.ts:42`), com a linha destacada.
+- **Trilhas por papel:** com `tracks` preenchido, a abertura oferece trilhas como frontend, backend ou QA, cada uma com só os capítulos e subprojetos que interessam: `/onboarding?trilha=frontend`.
+- **O que mudou desde a última visita:** quem volta vê a lista do que entrou ou mudou no onboarding desde a versão que leu, montada a partir do histórico do `onboarding.json` no git.
+- **Ficou confuso?** Cada slide tem um botão para deixar um comentário. Eles ficam em `onboarding-feedback.json`, ao lado do onboarding, e o `status` os entrega para a IA melhorar aqueles trechos. Desligue com `feedback: false`.
+- **Quem procurar:** opcional. Com `init --people`, a IA preenche `people` com quem conhece cada área, a partir do CODEOWNERS e dos autores dos commits. Só nome, papel e canal: o `validate` recusa e-mail e telefone.
+
 ## Cara da marca
 
 A apresentação usa as cores e o logo do projeto. A IA preenche `brand` (`primaryColor`, `palette`, `logo`, `favicon`) e o que ficar vazio é detectado automaticamente:
@@ -130,7 +191,11 @@ Com uma cor, os capítulos variam em torno dela. Com várias, eles se revezam en
 
 ## O que vai no JSON
 
-`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks`, `workflow` (modelo de branches, padrão de commit com exemplos reais, processo de PR, ambientes de deploy), `quality` (como o time testa e o que roda na CI e nos hooks), `docs`, `codeNotes` (NOTE/IMPORTANT/WARNING/@deprecated relevantes), `todos` e `brand` (cores e logo). `architecture` também traz `style` (monolito, microsserviços, hexagonal…) e `patterns`.
+`project`, `business` (modelo de negócio, valor entregue, perfis e jornadas), `gettingStarted`, `stack`, `architecture` (com diagrama Mermaid), `conventions`, `domain` (glossário e regras de negócio), `features`, `tours` pelo código, `gotchas`, `decisions`, `firstTasks`, `workflow` (modelo de branches, padrão de commit com exemplos reais, processo de PR, ambientes de deploy), `quality` (como o time testa e o que roda na CI e nos hooks), `docs`, `codeNotes` (NOTE/IMPORTANT/WARNING/@deprecated relevantes), `todos`, `subprojects` (projetos do monorepo), `tracks` (trilhas por papel), `people` (opcional) e `brand` (cores e logo). `architecture` também traz `style` (monolito, microsserviços, hexagonal…) e `patterns`.
+
+Toda afirmação aponta para arquivos reais (`evidence: ["src/orders/orders.service.ts:42"]`). Quando `project.repoUrl` está preenchido, essas referências viram links para o código.
+
+As chaves que começam com `_` (como `_instructions`) são só para a IA: a página as ignora. Deixe-as no arquivo, porque a IA usa essas instruções para **atualizar** o onboarding depois (com `git diff` desde `meta.commit`).
 
 ### Monorepos e vários projetos
 
@@ -138,9 +203,7 @@ O `init` e o `facts` reconhecem repositórios com mais de um projeto: workspaces
 
 O `onboarding.json` já nasce com a seção `subprojects` pré-preenchida (nome, pasta, framework e `dependsOn`) e com as dicas de cada framework encontrado em `_instructions.monorepo`. A IA completa `kind`, `description` e `command` (ex.: `pnpm --filter web dev`), e a apresentação ganha um slide no capítulo de arquitetura com o que cada projeto faz e quem depende de quem. O `validate` confere se as pastas existem e se o `dependsOn` aponta para subprojetos listados.
 
-Toda afirmação aponta para arquivos reais (`evidence: ["src/orders/orders.service.ts:42"]`). Quando `project.repoUrl` está preenchido, essas referências viram links para o código.
-
-As chaves que começam com `_` (como `_instructions`) são só para a IA: a página as ignora. Deixe-as no arquivo, porque a IA usa essas instruções para **atualizar** o onboarding depois (com `git diff` desde `meta.commit`).
+No monorepo, o `init` cria a rota `/onboarding` dentro do primeiro web app que encontrar (Next, Nuxt, SvelteKit, Vite...) apontando para o `onboarding.json` da raiz, diz como instalar o kit naquele app e adiciona `npm run onboarding` na raiz. Para escolher outro app, use `--project apps/admin` (pasta ou nome). O `facts --project apps/api` mostra os fatos de um subprojeto só, os TODOs aparecem agrupados por subprojeto e a apresentação desenha sozinha o diagrama de quem depende de quem.
 
 ## Uso manual dos adapters
 
@@ -160,6 +223,7 @@ import { createOnboardingRoute } from "onboarding-kit/next";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const GET = createOnboardingRoute();
+export const POST = GET;
 
 // NestJS: app.module.ts (com globalPrefix "api", a rota fica /api/onboarding)
 import { OnboardingModule } from "onboarding-kit/nest";
@@ -172,22 +236,24 @@ export default defineConfig({ plugins: [onboarding(), react()] });
 // Astro: astro.config.mjs
 export default defineConfig({ vite: { plugins: [onboarding()] } });
 
-// Nuxt: server/routes/onboarding.get.ts
+// Nuxt: server/routes/onboarding.ts
 import { createOnboardingFetchHandler } from "onboarding-kit/fetch";
 const onboarding = createOnboardingFetchHandler();
-export default defineEventHandler(() => onboarding());
+export default defineEventHandler((event) => onboarding(toWebRequest(event)));
 
 // SvelteKit: src/routes/onboarding/+server.ts
 export const GET = createOnboardingFetchHandler();
+export const POST = GET;
 
 // Remix: app/routes/onboarding.ts
 export const loader = createOnboardingFetchHandler();
+export const action = loader;
 
 // Hono / Elysia
-app.get("/onboarding", () => onboarding());
+app.all("/onboarding", (c) => onboarding(c.req.raw));
 
 // Bun.serve / Deno.serve
-Bun.serve({ fetch: (req) => new URL(req.url).pathname === "/onboarding" ? onboarding() : seuHandler(req) });
+Bun.serve({ fetch: (req) => new URL(req.url).pathname === "/onboarding" ? onboarding(req) : seuHandler(req) });
 
 // Fastify
 import { fastifyOnboarding } from "onboarding-kit/fastify";
@@ -199,10 +265,10 @@ app.use(createOnboardingMiddleware());
 
 // Express
 import { createOnboardingHandler } from "onboarding-kit/express";
-app.get("/onboarding", createOnboardingHandler());
+app.all("/onboarding", createOnboardingHandler());
 ```
 
-Todos os adapters aceitam `{ file?: string; enabled?: boolean }`; os de Vite, Fastify, Koa e Nest também aceitam `path`. O plugin do Vite só roda no `vite dev`, nunca entra no build.
+Todos os adapters aceitam `{ file?: string; enabled?: boolean; password?: string; feedback?: boolean }`; os de Vite, Fastify, Koa e Nest também aceitam `path`. Os handlers recebem a requisição para ler a trilha da URL, e o `POST` na mesma rota guarda o feedback dos slides. O plugin do Vite só roda no `vite dev`, nunca entra no build.
 
 Em projetos sem servidor web (apps mobile, desktop, bibliotecas), use `npx onboarding-kit serve`.
 
@@ -213,6 +279,8 @@ O `facts` e a varredura de TODOs entendem os arquivos do universo JavaScript: Ty
 ## Segurança
 
 - A rota fica **desligada quando `NODE_ENV=production`**. Para ligar de propósito, passe `enabled: true`.
+- Com `ONBOARDING_PASSWORD` (ou `password`), a rota pede senha (HTTP Basic, qualquer usuário) e fica disponível também em produção. Útil para publicar em staging.
+- O feedback só aceita `application/json`, o que impede envios a partir de formulários de outros sites.
 - A página envia `noindex` e não usa cache.
 - O `validate` procura tokens, chaves privadas, JWTs e URLs com senha.
 - Todo o conteúdo do JSON passa por escape antes de entrar no HTML.
@@ -221,9 +289,25 @@ O `facts` e a varredura de TODOs entendem os arquivos do universo JavaScript: Ty
 
 ```bash
 npm install
-npm test        # compila e roda os testes
+npm test           # compila e roda os testes
+npm run test:e2e   # testa o deck exportado no Chromium (Playwright); PW_CHANNEL=chrome usa o Chrome instalado
 node dist/cli/index.js serve   # mostra o onboarding do próprio onboarding-kit
 ```
+
+A CI roda os testes no Node 18, 20 e 22 e também no Windows e no macOS, mais os testes de navegador. A cada push na `master`, o workflow `pages.yml` publica a [demo](https://lewixgenerator.github.io/onboard-kit/) (o onboarding do próprio kit) e o badge de cobertura.
+
+As mensagens da CLI seguem o idioma do sistema (português ou inglês). Para escolher, use `ONBOARDING_KIT_LANG=pt` ou `en`.
+
+### Publicação
+
+As versões são publicadas pelo GitHub Actions ao enviar uma tag, com [Trusted Publishing](https://docs.npmjs.com/trusted-publishers) e provenance (sem token nem OTP):
+
+```bash
+npm version minor   # atualiza o package.json e cria a tag vX.Y.0
+git push --follow-tags
+```
+
+Configuração única no npmjs.com: **onboarding-kit → Settings → Trusted Publisher → GitHub Actions**, repositório `LewixGenerator/onboard-kit`, workflow `publish.yml`.
 
 ## Licença
 

@@ -2,7 +2,7 @@ import type { MarkerScan } from "../facts";
 import { filled, isBlank } from "../load";
 import type { OnboardingData } from "../types";
 import type { ChapterId, Copy } from "./copy";
-import { chunk, escapeHtml, evidenceChip, evidenceList, hueFrom, initials, pad, text } from "./html";
+import { chunk, codeSnippet, escapeHtml, evidenceChip, evidenceList, firstWithLine, hueFrom, initials, pad, text } from "./html";
 
 export interface Slide {
   chapter: ChapterId;
@@ -19,6 +19,8 @@ export interface Ctx {
   num: number;
   /** Marcadores (TODO, NOTE...) lidos agora do código, quando a raiz do projeto é conhecida. */
   markers?: MarkerScan;
+  /** Raiz do repositório: com ela, as evidências com linha mostram o trecho do código. */
+  root?: string;
 }
 
 type Builder = (ctx: Ctx) => Slide[];
@@ -168,11 +170,11 @@ const language: Builder = (ctx) => {
 
 const rules: Builder = (ctx) => {
   const { t, data } = ctx;
-  return paged(ctx, "rules", filled(data.domain?.businessRules), 3, t.rules.title, t.rules.lede, (page, offset) =>
+  return paged(ctx, "rules", filled(data.domain?.businessRules), 2, t.rules.title, t.rules.lede, (page, offset) =>
     `<div class="rules reveal">${page
       .map(
         (r, i) =>
-          `<div class="card rule"><span class="rule-num" aria-label="${t.rules.rule} ${offset + i + 1}">${pad(offset + i + 1)}</span><div><h3>${escapeHtml(r.title)}</h3><p>${text(r.description)}</p>${evidenceList(r.evidence, data)}</div></div>`,
+          `<div class="card rule"><span class="rule-num" aria-label="${t.rules.rule} ${offset + i + 1}">${pad(offset + i + 1)}</span><div><h3>${escapeHtml(r.title)}</h3><p>${text(r.description)}</p>${codeSnippet(firstWithLine(r.evidence), ctx.root)}${evidenceList(r.evidence, data)}</div></div>`,
       )
       .join("")}</div>`,
   );
@@ -223,6 +225,15 @@ const architecture: Builder = (ctx) => {
     });
   }
   const projects = filled(data.subprojects);
+  const graph = dependencyDiagram(projects);
+  if (graph) {
+    slides.push({
+      chapter: "architecture",
+      kind: "diagram",
+      title: t.architecture.graphTitle,
+      html: `${head(ctx, "architecture", t.architecture.graphTitle, t.architecture.graphLede)}<div class="diagram reveal"><pre class="mermaid">${escapeHtml(graph)}</pre></div>`,
+    });
+  }
   slides.push(
     ...paged(ctx, "architecture", projects, 6, t.architecture.projectsTitle, t.architecture.projectsLede, (page) =>
       `<div class="grid reveal">${page
@@ -257,6 +268,15 @@ const architecture: Builder = (ctx) => {
   slides.push(...decisions({ ...ctx }, "architecture"));
   return slides;
 };
+
+/** Diagrama Mermaid de quem depende de quem entre os subprojetos; vazio se não houver nenhuma ligação. */
+export function dependencyDiagram(projects: { name: string; dependsOn?: string[] }[]): string {
+  const ids = new Map(projects.map((p, i) => [p.name, `p${i}`]));
+  const edges = projects.flatMap((p) => filled(p.dependsOn).filter((d) => ids.has(d)).map((d) => `  ${ids.get(p.name)} --> ${ids.get(d)}`));
+  if (!edges.length) return "";
+  const nodes = projects.map((p) => `  ${ids.get(p.name)}["${p.name.replace(/"/g, "'")}"]`);
+  return ["graph LR", ...nodes, ...edges].join("\n");
+}
 
 const setup: Builder = (ctx) => {
   const { t, data } = ctx;
@@ -327,7 +347,7 @@ const tours: Builder = (ctx) => {
         chapter: "tours",
         kind: "tour-step",
         title: `${tour.title} · ${i + 1}`,
-        html: `<p class="kicker"><span class="num">${ctx.num}</span>${escapeHtml(tour.title)}</p><div class="tour-step"><span class="bignum" aria-hidden="true">${pad(i + 1)}</span><div><p class="mini-label">${escapeHtml(t.tours.stop(i + 1, steps.length))}</p>${evidenceChip(s.file, data, "ev-lg")}<p class="statement small">${text(s.explanation)}</p><div class="stops" aria-hidden="true">${steps
+        html: `<p class="kicker"><span class="num">${ctx.num}</span>${escapeHtml(tour.title)}</p><div class="tour-step"><span class="bignum" aria-hidden="true">${pad(i + 1)}</span><div><p class="mini-label">${escapeHtml(t.tours.stop(i + 1, steps.length))}</p>${evidenceChip(s.file, data, "ev-lg")}<p class="statement small">${text(s.explanation)}</p>${codeSnippet(s.file, ctx.root, 3, 8)}<div class="stops" aria-hidden="true">${steps
           .map((_, j) => `<i class="${j <= i ? "on" : ""}"></i>`)
           .join("")}</div></div></div>`,
       });
@@ -340,7 +360,7 @@ const gotchas: Builder = (ctx) => {
   const { t, data } = ctx;
   return paged(ctx, "gotchas", filled(data.gotchas).slice(0, 6), 3, t.gotchas.title, t.gotchas.lede, (page) =>
     `<div class="stack-list reveal">${page
-      .map((g) => `<div class="card gotcha"><span class="emoji" aria-hidden="true">🍌</span><div><h3>${escapeHtml(g.title)}</h3><p>${text(g.description)}</p>${evidenceList(g.evidence, data)}</div></div>`)
+      .map((g) => `<div class="card gotcha"><span class="emoji" aria-hidden="true">🍌</span><div><h3>${escapeHtml(g.title)}</h3><p>${text(g.description)}</p>${codeSnippet(firstWithLine(g.evidence), ctx.root)}${evidenceList(g.evidence, data)}</div></div>`)
       .join("")}</div>`,
   );
 };
@@ -611,6 +631,20 @@ const mission: Builder = (ctx) => {
 };
 
 /** Capítulos do meio, em ordem narrativa: do porquê ao código. */
+const people: Builder = (ctx) => {
+  const { t, data } = ctx;
+  return paged(ctx, "people", filled(data.people), 6, t.people.title, t.people.lede, (page) =>
+    `<div class="grid reveal">${page
+      .map(
+        (p) =>
+          `<div class="card actor person"><span class="avatar" style="--ah:${hueFrom(p.name)}">${escapeHtml(initials(p.name))}</span><div><h3>${escapeHtml(p.name)}</h3>${p.role?.trim() ? `<p>${text(p.role)}</p>` : ""}${
+            filled(p.areas).length ? `<span class="label">${t.people.areas}</span><div class="badges">${filled(p.areas).map((a) => `<code>${escapeHtml(a)}</code>`).join("")}</div>` : ""
+          }${p.contact?.trim() ? `<p class="contact"><span class="label">${t.people.contact}</span>${text(p.contact)}</p>` : ""}</div></div>`,
+      )
+      .join("")}</div>`,
+  );
+};
+
 export const CHAPTERS: [ChapterId, Builder][] = [
   ["why", why],
   ["business", business],
@@ -622,6 +656,7 @@ export const CHAPTERS: [ChapterId, Builder][] = [
   ["setup", setup],
   ["conventions", conventions],
   ["workflow", workflow],
+  ["people", people],
   ["quality", quality],
   ["docs", docs],
   ["tours", tours],

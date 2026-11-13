@@ -1,3 +1,5 @@
+import { readFileSync, statSync } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { filled } from "../load";
 import type { Evidence, OnboardingData } from "../types";
 import { parseEvidence } from "../validate";
@@ -59,6 +61,43 @@ export function evidenceChip(ref: Evidence, data: OnboardingData, extraClass = "
   const commit = data.meta?.commit?.trim() || "HEAD";
   const href = `${base}/blob/${encodeURIComponent(commit)}/${file.split("/").map(encodeURIComponent).join("/")}${line ? `#L${line}` : ""}`;
   return `<a class="ev ${extraClass}" href="${escapeHtml(href)}" target="_blank" rel="noopener">${label}</a>`;
+}
+
+const SNIPPET_MAX_BYTES = 400_000;
+
+/**
+ * Trecho do código em volta da linha citada (ref "arquivo.ts:42"), lido do repositório na hora.
+ * Vazio sem linha, fora da raiz ou com arquivo grande demais.
+ */
+export function codeSnippet(ref: Evidence | undefined, root: string | undefined, before = 2, after = 5): string {
+  if (!ref || !root) return "";
+  const { file, line } = parseEvidence(ref);
+  if (!line) return "";
+  const full = resolve(root, file);
+  const rel = relative(root, full);
+  if (isAbsolute(file) || rel.startsWith("..") || rel.split(sep).includes("..")) return "";
+  let lines: string[];
+  try {
+    if (!statSync(full).isFile() || statSync(full).size > SNIPPET_MAX_BYTES) return "";
+    lines = readFileSync(full, "utf8").split("\n");
+  } catch {
+    return "";
+  }
+  if (line > lines.length) return "";
+  const start = Math.max(1, line - before);
+  const end = Math.min(lines.length, line + after);
+  const indent = Math.min(...lines.slice(start - 1, end).filter((l) => l.trim()).map((l) => /^\s*/.exec(l)![0].replace(/\t/g, "  ").length));
+  const rows = [];
+  for (let n = start; n <= end; n++) {
+    const code = escapeHtml(lines[n - 1].replace(/\t/g, "  ").slice(Number.isFinite(indent) ? indent : 0).replace(/\s+$/, "")) || " ";
+    rows.push(`<span class="${n === line ? "hl" : ""}"><i>${n}</i>${code}</span>`);
+  }
+  return `<pre class="snippet"><code>${rows.join("")}</code></pre>`;
+}
+
+/** Primeira evidência com linha, para mostrar o trecho do código. */
+export function firstWithLine(refs: Evidence[] | undefined): Evidence | undefined {
+  return filled(refs).find((r) => parseEvidence(r).line !== undefined);
 }
 
 export function evidenceList(refs: Evidence[] | undefined, data: OnboardingData): string {

@@ -37,7 +37,7 @@ function num(value: string, scale = 1): number {
   return value.endsWith("%") ? (parseFloat(value) / 100) * scale : parseFloat(value);
 }
 
-function hslToRgb(h: number, s: number, l: number): Rgb {
+export function hslToRgb(h: number, s: number, l: number): Rgb {
   s = clamp01(s / 100);
   l = clamp01(l / 100);
   const k = (n: number) => (n + h / 30) % 12;

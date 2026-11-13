@@ -1,11 +1,19 @@
-import { Controller, DynamicModule, Get, Header, Module, NotFoundException } from "@nestjs/common";
-import { HTML_HEADERS, renderOnboardingPage } from "../index";
-import { resolveEnabled } from "../load";
+import { All, Controller, DynamicModule, Module, NotFoundException, Req, Res } from "@nestjs/common";
+import { handleOnboarding, nodeBody, nodeHeader } from "../handler";
 import type { OnboardingOptions } from "../types";
 
 export interface OnboardingModuleOptions extends OnboardingOptions {
   /** Caminho da rota. Padrão: "onboarding". O globalPrefix do app, se houver, é aplicado antes. */
   path?: string;
+}
+
+/** Resposta do Express (status/set/send) ou do Fastify (code/headers/send), conforme a plataforma do Nest. */
+interface ResponseLike {
+  status?(code: number): ResponseLike;
+  set?(headers: Record<string, string>): ResponseLike;
+  code?(code: number): ResponseLike;
+  headers?(headers: Record<string, string>): ResponseLike;
+  send(body: string): unknown;
 }
 
 /**
@@ -21,15 +29,13 @@ export class OnboardingModule {
 
     @Controller(path)
     class OnboardingController {
-      @Get()
-      @Header("Content-Type", HTML_HEADERS["Content-Type"])
-      @Header("Cache-Control", HTML_HEADERS["Cache-Control"])
-      @Header("X-Robots-Tag", HTML_HEADERS["X-Robots-Tag"])
-      async show(): Promise<string> {
-        if (!resolveEnabled(rest)) throw new NotFoundException();
+      @All()
+      async show(@Req() req: any, @Res() res: ResponseLike): Promise<unknown> {
         // Páginas de erro (JSON inválido etc.) também são HTML legível, então sempre devolvemos o corpo.
-        const page = await renderOnboardingPage(rest.file);
-        return page.html;
+        const out = await handleOnboarding({ method: req?.method, url: req?.originalUrl ?? req?.url, header: nodeHeader(req?.headers), text: nodeBody(req ?? {}) }, rest);
+        if (!out) throw new NotFoundException();
+        if (res.code && res.headers) return res.code(out.status).headers!(out.headers).send(out.body);
+        return res.status!(out.status).set!(out.headers).send(out.body);
       }
     }
 

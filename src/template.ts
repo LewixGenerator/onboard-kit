@@ -1,5 +1,6 @@
 import type { Subproject } from "./detect";
 import type { Framework, OnboardingData } from "./types";
+import { SCHEMA_URL } from "./version";
 
 export const SCHEMA_VERSION = "1";
 
@@ -7,7 +8,7 @@ const FRAMEWORK_HINTS: Record<Framework, string> = {
   next:
     "Projeto Next.js. Identifique se usa App Router (app/) ou Pages Router (pages/), as rotas e layouts, Server Components e Client Components ('use client'), Server Actions, route handlers (app/**/route.ts), middleware.ts, estratégia de fetch e cache, autenticação, estilização (Tailwind, CSS Modules etc.) e onde fica o acesso a dados. Use as rotas principais como base para features e tours. Ignore a rota app/onboarding criada pelo onboarding-kit.",
   nuxt:
-    "Projeto Nuxt. Mapeie pages/ (rotas por arquivo), layouts/, components/ (auto-import), composables/ e utils/, stores (Pinia), middleware de rota, plugins/, a API em server/ (server/api, server/routes, server/middleware) e o nuxt.config (módulos, runtimeConfig). Veja se usa Nuxt UI, Content ou Layers. Ignore server/routes/onboarding.get.ts criado pelo onboarding-kit.",
+    "Projeto Nuxt. Mapeie pages/ (rotas por arquivo), layouts/, components/ (auto-import), composables/ e utils/, stores (Pinia), middleware de rota, plugins/, a API em server/ (server/api, server/routes, server/middleware) e o nuxt.config (módulos, runtimeConfig). Veja se usa Nuxt UI, Content ou Layers. Ignore server/routes/onboarding.ts criado pelo onboarding-kit.",
   sveltekit:
     "Projeto SvelteKit. Mapeie src/routes (+page.svelte, +layout.svelte, +page.server.ts com load e form actions, +server.ts para APIs), src/lib (componentes, stores, $lib/server), hooks.server.ts (auth, sessão), o adapter de deploy no svelte.config e se usa runes (Svelte 5). Ignore src/routes/onboarding criado pelo onboarding-kit.",
   astro:
@@ -85,6 +86,10 @@ const SECTION_INSTRUCTIONS = {
     "Decisões de arquitetura perceptíveis no código ou na documentação (ex.: por que tal ORM, monorepo, cache, autenticação). context: o problema. decision: o que foi escolhido. Não invente motivos: se o motivo não está documentado, descreva só a decisão.",
   brand:
     "Identidade visual, usada para a apresentação ter a cara da plataforma. primaryColor: a cor principal da marca em hex (#RRGGBB). Procure em tailwind.config (theme.extend.colors: brand, primary), no @theme do Tailwind v4 (--color-primary, --color-brand), em variáveis CSS de globals.css/index.css (--primary, --brand; converta HSL/OKLCH para hex), em temas de MUI/Chakra/styled-components (palette.primary.main), Vuetify, Quasar, UnoCSS, Panda, Nuxt UI (app.config: ui.primary), Angular Material, em blocos <style> de App.vue/+layout.svelte/Layout.astro, no app.json do Expo e no theme_color do manifest. palette: 1 a 4 outras cores da marca em hex (secundária, destaque). Ignore branco, preto e cinzas quando houver uma cor de verdade. logo: caminho do logo do projeto (procure em public/, static/, assets/, src/assets/, src/lib/assets/, app/icon.*, resources/ e build/ no Electron, assets/ no Expo); prefira SVG e a versão para fundo claro; ignore os arquivos de exemplo do framework (next.svg, vercel.svg, vite.svg, react.svg, nuxt.svg, svelte.svg, astro.svg...). favicon: caminho do favicon (public/favicon.ico, app/favicon.ico, app/icon.png). evidence: arquivos de onde tirou as cores. Deixe vazio o que não encontrar: o onboarding-kit tenta detectar sozinho.",
+  tracks:
+    "Opcional. Quando o projeto tem públicos diferentes (frontend, backend, mobile, dados, QA, produto), crie 2 a 4 trilhas; num projeto pequeno deixe []. id: minúsculas com hífen, vai na URL (/onboarding?trilha=frontend). name e description curtos. chapters: os capítulos que a trilha mostra, entre why, business, product, language, rules, stack, architecture, setup, conventions, workflow, people, quality, docs, tours, gotchas, todos, mission, cheatsheet (vazio = todos). paths: os subprojetos (path) da trilha (vazio = todos).",
+  people:
+    "Só preencha se esta seção existir no arquivo (o time pediu com `init --people`). Use `npx onboarding-kit facts --people`, que lista o CODEOWNERS e quem mais fez commits em cada área no último ano. Até 8 pessoas. name; role só se estiver documentado; areas: pastas ou subprojetos que a pessoa conhece; contact: canal do time ou @usuario do GitHub. NUNCA inclua e-mail, telefone ou dados pessoais.",
   firstTasks:
     "3 a 5 tarefas pequenas e seguras para alguém novo começar (ex.: um teste faltando, um TODO simples, uma melhoria de mensagem de erro), com os arquivos envolvidos.",
 };
@@ -94,6 +99,8 @@ export interface TemplateOptions {
   language?: string;
   /** Subprojetos detectados (detectSubprojects): entram pré-preenchidos e ganham dicas por framework. */
   subprojects?: Subproject[];
+  /** Inclui a seção "Quem procurar" (people). Desligada por padrão: mostra nomes de pessoas. */
+  people?: boolean;
 }
 
 /** Instruções extras para repositórios com vários projetos: um resumo e a dica de cada framework encontrado. */
@@ -110,8 +117,9 @@ function monorepoInstructions(framework: Framework, subprojects: Subproject[]) {
   };
 }
 
-export function createTemplate({ framework, language = "pt-BR", subprojects = [] }: TemplateOptions): OnboardingData {
+export function createTemplate({ framework, language = "pt-BR", subprojects = [], people = false }: TemplateOptions): OnboardingData {
   return {
+    $schema: SCHEMA_URL,
     _instructions: {
       readme:
         "Você é a IA local deste projeto. Sua tarefa é preencher este arquivo analisando o código do repositório. O resultado será exibido em /onboarding para quem está chegando no projeto.",
@@ -130,7 +138,7 @@ export function createTemplate({ framework, language = "pt-BR", subprojects = []
         "Mantenha o JSON válido. Não renomeie nem remova chaves e não apague _instructions: ele é usado nas próximas atualizações.",
         "Escreva de forma curta, direta e humana, como um colega explicando o projeto: quem lê é uma pessoa recém-contratada que precisa entender a regra de negócio e os padrões do time. O conteúdo vira slides, então prefira frases curtas a parágrafos longos.",
         "Menos é mais: respeite os limites de itens de cada seção e escolha o que a pessoa precisa na primeira semana. Um item ótimo vale mais que cinco medianos.",
-        "Se meta.status já for \"filled\", você está ATUALIZANDO: use `git diff <meta.commit>..HEAD` para revisar apenas o que mudou, mantenha o restante e atualize meta.commit e meta.generatedAt.",
+        "Se meta.status já for \"filled\", você está ATUALIZANDO: rode `npx onboarding-kit status --fix` para ver quais itens citam arquivos que mudaram desde meta.commit (e corrigir as linhas que só andaram), revise apenas esses itens com `git diff <meta.commit> -- <arquivo>`, mantenha o restante e atualize meta.commit e meta.generatedAt.",
       ],
       framework: FRAMEWORK_HINTS[framework],
       ...(subprojects.length ? { monorepo: monorepoInstructions(framework, subprojects) } : {}),
@@ -200,6 +208,8 @@ export function createTemplate({ framework, language = "pt-BR", subprojects = []
     codeNotes: [{ title: "", description: "", file: "", kind: "" }],
     todos: [{ title: "", description: "", file: "", kind: "", impact: "" }],
     brand: { primaryColor: "", palette: [""], logo: "", favicon: "", evidence: [""] },
+    tracks: [],
+    ...(people ? { people: [{ name: "", role: "", areas: [""], contact: "" }] } : {}),
   };
 }
 

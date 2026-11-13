@@ -194,6 +194,12 @@ export function detectProject(root: string): ProjectProfile {
 
 /* ───────────────────────── subprojetos ───────────────────────── */
 
+/** Acha o subprojeto por pasta ou nome (como em --project apps/web ou --project web). */
+export function findSubproject(subprojects: Subproject[], ref: string): Subproject | undefined {
+  const clean = ref.replace(/^\.\//, "").replace(/\/+$/, "");
+  return subprojects.find((s) => s.path === clean || s.name === clean);
+}
+
 /** Pastas que nunca são subprojetos (dependências, saídas de build, fixtures de teste). */
 const NOT_PROJECT_DIRS = new Set(["node_modules", "dist", "build", "out", "coverage", "vendor", "tmp", "fixtures", "__fixtures__", "__mocks__", "bower_components", "jspm_packages"]);
 const MAX_SUBPROJECTS = 60;

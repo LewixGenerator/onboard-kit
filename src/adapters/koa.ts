@@ -1,5 +1,4 @@
-import { HTML_HEADERS, renderOnboardingPage } from "../index";
-import { resolveEnabled } from "../load";
+import { handleOnboarding, nodeBody } from "../handler";
 import type { OnboardingOptions } from "../types";
 
 export interface OnboardingKoaOptions extends OnboardingOptions {
@@ -10,9 +9,13 @@ export interface OnboardingKoaOptions extends OnboardingOptions {
 interface ContextLike {
   method: string;
   path: string;
+  url?: string;
   status: number;
   body: unknown;
+  get?(name: string): string;
   set(headers: Record<string, string>): void;
+  req?: { on?: Function };
+  request?: { body?: unknown };
 }
 
 /**
@@ -24,10 +27,12 @@ interface ContextLike {
 export function createOnboardingMiddleware(options: OnboardingKoaOptions = {}) {
   const { path = "/onboarding", ...rest } = options;
   return async function onboarding(ctx: ContextLike, next: () => Promise<unknown>): Promise<unknown> {
-    if (ctx.method !== "GET" || ctx.path !== path || !resolveEnabled(rest)) return next();
-    const page = await renderOnboardingPage(rest.file);
-    ctx.status = page.status;
-    ctx.set({ ...HTML_HEADERS });
-    ctx.body = page.html;
+    if (ctx.path !== path || !["GET", "HEAD", "POST"].includes(ctx.method)) return next();
+    const body = ctx.request?.body !== undefined ? { body: ctx.request.body } : (ctx.req ?? {});
+    const out = await handleOnboarding({ method: ctx.method, url: ctx.url, header: (name) => ctx.get?.(name) || undefined, text: nodeBody(body) }, rest);
+    if (!out) return next();
+    ctx.status = out.status;
+    ctx.set(out.headers);
+    ctx.body = out.body;
   };
 }

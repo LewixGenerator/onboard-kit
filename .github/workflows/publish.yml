@@ -1,0 +1,35 @@
+name: Publish
+
+# Publica no npm quando uma tag de versão (v1.2.3) é enviada.
+# Usa Trusted Publishing (OIDC): não precisa de NPM_TOKEN nem de OTP.
+# Configure uma vez em npmjs.com → onboarding-kit → Settings → Trusted Publisher:
+#   GitHub Actions · LewixGenerator/onboard-kit · workflow publish.yml
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      # Trusted Publishing exige npm 11.5.1 ou mais novo
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - name: Confere se a tag bate com a versão do package.json
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME não bate com package.json ($VERSION)"
+            exit 1
+          fi
+      - run: npm publish --provenance

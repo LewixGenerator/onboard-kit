@@ -8,8 +8,13 @@ export function resolveFile(file?: string): string {
   return resolve(process.cwd(), file ?? DEFAULT_FILE);
 }
 
+export function resolvePassword(options: OnboardingOptions = {}): string | undefined {
+  return options.password ?? (process.env.ONBOARDING_PASSWORD || undefined);
+}
+
+/** Ligada fora de produção; em produção, só com `enabled: true` ou com senha (ex.: staging). */
 export function resolveEnabled(options: OnboardingOptions = {}): boolean {
-  return options.enabled ?? process.env.NODE_ENV !== "production";
+  return options.enabled ?? (process.env.NODE_ENV !== "production" || Boolean(resolvePassword(options)));
 }
 
 export type LoadResult =

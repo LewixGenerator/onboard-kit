@@ -1,5 +1,4 @@
-import { HTML_HEADERS, renderOnboardingPage } from "../index";
-import { resolveEnabled } from "../load";
+import { handleOnboarding, nodeBody, nodeHeader } from "../handler";
 import type { OnboardingOptions } from "../types";
 import { createOnboardingFetchHandler } from "./fetch";
 
@@ -13,12 +12,20 @@ export type { OnboardingOptions };
  *   export const runtime = "nodejs";
  *   export const dynamic = "force-dynamic";
  *   export const GET = createOnboardingRoute();
+ *   export const POST = GET;
  */
 export function createOnboardingRoute(options: OnboardingOptions = {}) {
   const onboarding = createOnboardingFetchHandler(options);
-  return async function GET(): Promise<Response> {
-    return onboarding();
+  return async function GET(request?: Request): Promise<Response> {
+    return onboarding(request);
   };
+}
+
+interface ApiRequest {
+  method?: string;
+  url?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  body?: unknown;
 }
 
 /**
@@ -28,15 +35,15 @@ export function createOnboardingRoute(options: OnboardingOptions = {}) {
  */
 export function createOnboardingApiHandler(options: OnboardingOptions = {}) {
   return async function handler(
-    _req: unknown,
+    req: ApiRequest,
     res: { status(code: number): { send(body: string): void }; setHeader(name: string, value: string): void },
   ): Promise<void> {
-    if (!resolveEnabled(options)) {
+    const out = await handleOnboarding({ method: req?.method, url: req?.url, header: nodeHeader(req?.headers), text: nodeBody(req ?? {}) }, options);
+    if (!out) {
       res.status(404).send("Not Found");
       return;
     }
-    const page = await renderOnboardingPage(options.file);
-    for (const [name, value] of Object.entries(HTML_HEADERS)) res.setHeader(name, value);
-    res.status(page.status).send(page.html);
+    for (const [name, value] of Object.entries(out.headers)) res.setHeader(name, value);
+    res.status(out.status).send(out.body);
   };
 }

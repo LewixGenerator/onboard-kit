@@ -104,6 +104,29 @@ export interface SubprojectInfo {
   command: string;
 }
 
+/** Recorte da apresentação para um papel (frontend, backend, QA...): /onboarding?trilha=<id>. */
+export interface Track {
+  /** Usado na URL: minúsculas e hífens (ex.: frontend). */
+  id: string;
+  name: string;
+  description: string;
+  /** Capítulos da trilha (why, business, product, language, rules, stack, architecture, setup, conventions, workflow, people, quality, docs, tours, gotchas, todos, mission, cheatsheet). Vazio = todos. */
+  chapters: string[];
+  /** Subprojetos (path) que interessam à trilha. Vazio = todos. */
+  paths: string[];
+}
+
+/** Quem conhece cada parte do código. Só preenchido quando o time pede (init --people). */
+export interface Person {
+  name: string;
+  /** Papel no time, se estiver documentado (ex.: tech lead do checkout). */
+  role: string;
+  /** Pastas ou subprojetos que a pessoa conhece. */
+  areas: string[];
+  /** Como falar com ela (canal, @usuario). Nunca e-mail pessoal ou telefone. */
+  contact: string;
+}
+
 export interface Convention {
   title: string;
   description: string;
@@ -301,11 +324,19 @@ export interface OnboardingData {
   todos?: TodoItem[];
   /** Cores e logo do projeto, usados para dar a cara da marca à apresentação. Opcional. */
   brand?: BrandInfo;
+  /** Trilhas por papel. Opcional. */
+  tracks?: Track[];
+  /** Quem procurar em cada área. Opcional e desligado por padrão. */
+  people?: Person[];
 }
 
 export interface OnboardingOptions {
   /** Caminho do onboarding.json. Padrão: "<cwd>/onboarding.json". */
   file?: string;
-  /** Liga ou desliga a rota. Padrão: ligada fora de produção (NODE_ENV !== "production"). */
+  /** Liga ou desliga a rota. Padrão: ligada fora de produção, ou em qualquer ambiente quando há senha. */
   enabled?: boolean;
+  /** Pede senha (HTTP Basic, qualquer usuário). Padrão: a variável ONBOARDING_PASSWORD. */
+  password?: string;
+  /** Botão "ficou confuso?" em cada slide, salvo em onboarding-feedback.json. Padrão: ligado. */
+  feedback?: boolean;
 }

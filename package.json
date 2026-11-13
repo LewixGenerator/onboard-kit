@@ -53,6 +53,7 @@
       "types": "./dist/adapters/koa.d.ts",
       "default": "./dist/adapters/koa.js"
     },
+    "./schema.json": "./dist/onboarding.schema.json",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -84,14 +85,16 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.en.md"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/*.test.js",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json && node scripts/build-schema.js",
+    "test": "npm run build && node --test",
+    "test:e2e": "npm run build && playwright test",
     "prepublishOnly": "npm test"
   },
   "keywords": [
@@ -136,9 +139,13 @@
   },
   "devDependencies": {
     "@nestjs/common": "^11.0.0",
+    "@playwright/test": "^1.65.0",
     "@types/node": "^22.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typescript": "^5.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

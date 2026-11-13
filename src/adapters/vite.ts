@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OnboardingOptions } from "../types";
 import { createOnboardingHandler } from "./node";
 
-export interface OnboardingViteOptions extends Pick<OnboardingOptions, "file"> {
+export interface OnboardingViteOptions extends Pick<OnboardingOptions, "file" | "password" | "feedback"> {
   /** Caminho da página. Padrão: "/onboarding". */
   path?: string;
 }
@@ -25,7 +25,7 @@ interface DevServerLike {
  */
 export function onboarding(options: OnboardingViteOptions = {}) {
   const path = options.path ?? "/onboarding";
-  const handler = createOnboardingHandler({ file: options.file, enabled: true });
+  const handler = createOnboardingHandler({ file: options.file, password: options.password, feedback: options.feedback, enabled: true });
   return {
     name: "onboarding-kit",
     apply: "serve" as const,
@@ -34,7 +34,7 @@ export function onboarding(options: OnboardingViteOptions = {}) {
       const paths = new Set([path, `${base}${path}`]);
       server.middlewares.use((req, res, next) => {
         const pathname = (req.url ?? "/").split("?")[0].replace(/\/$/, "");
-        if (req.method === "GET" && paths.has(pathname)) return void handler(req, res, next);
+        if ((req.method === "GET" || req.method === "POST") && paths.has(pathname)) return void handler(req, res, next);
         next();
       });
     },
